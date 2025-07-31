@@ -4,8 +4,61 @@
   <meta charset="UTF-8">
   <title>Gestione Ombrelloni Online</title>
   <style>
-    /* ... (stili CSS invariati, già presenti nel tuo codice) ... */
-    /* [Per brevità, se vuoi posso rimuovere il CSS oppure lasciarlo qui] */
+    /* Tutto il CSS rimane invariato */
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #f4e7c5;
+    }
+    #map { width: 100vw; height: 100vh; position: relative; cursor: crosshair; }
+    .umbrella {
+      width: 140px; height: 140px; position: absolute; display: flex;
+      justify-content: center; align-items: center; font-size: 40px;
+      font-weight: bold; color: #000; box-sizing: border-box;
+      cursor: grab; border: 2px solid #333; background-color: gray;
+      text-align: center; padding: 10px;
+      clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, z-index 0.2s ease;
+      user-select: none; touch-action: none;
+    }
+    .umbrella:hover {
+      transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .umbrella.dragging {
+      cursor: grabbing; transform: scale(1.1) rotate(2deg);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.4); z-index: 1000; transition: none;
+    }
+    .umbrella.open { background-color: green; }
+    .umbrella.closed { background-color: red; }
+    .delete-btn {
+      position: absolute; top: 10px; right: 15px; cursor: pointer;
+      font-size: 18px; color: black; user-select: none; z-index: 1;
+      padding: 2px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.8);
+      transition: background-color 0.2s ease, transform 0.2s ease;
+    }
+    .delete-btn:hover {
+      background: rgba(255, 0, 0, 0.2); transform: scale(1.2);
+    }
+    .date-label {
+      position: absolute; bottom: 5px; font-size: 10px; width: 100%;
+      text-align: center; pointer-events: none;
+    }
+    #modal-backdrop {
+      display: none; position: fixed; top: 0; left: 0; width: 100vw;
+      height: 100vh; background: rgba(0,0,0,0.5); z-index: 10;
+    }
+    #edit-modal {
+      position: absolute; background: white; padding: 20px;
+      border-radius: 8px; min-width: 300px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5); transform: translate(-50%, -50%);
+    }
+    #edit-modal label { display: block; margin: 10px 0 5px; }
+    #edit-modal input { width: 100%; padding: 6px; font-size: 16px; }
+    #edit-modal-buttons { margin-top: 15px; text-align: right; }
+    #edit-modal-buttons button {
+      margin-left: 10px; padding: 6px 12px; font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -25,12 +78,12 @@
     </div>
   </div>
 
-  <!-- Firebase + Script app -->
+  <!-- Firebase + Script -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
     import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
 
-    // ✅ Nuova configurazione Firebase per la SPIAGGIA 2
+    // ✅ Nuova configurazione Firebase SPIAGGIA 2
     const firebaseConfig = {
       apiKey: "AIzaSyB2Wuo1_3Ncpzh6nwc3XsStXz7Un6SfNAw",
       authDomain: "bussola-6417e.firebaseapp.com",
@@ -44,7 +97,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // 🔽 Tutto il resto del codice JavaScript rimane invariato
     const map = document.getElementById('map');
     const modalBackdrop = document.getElementById('modal-backdrop');
     const editModal = document.getElementById('edit-modal');
@@ -115,10 +167,8 @@
     function positionModal(umbrellaEl) {
       const rect = umbrellaEl.getBoundingClientRect();
       const mapRect = map.getBoundingClientRect();
-
       const umbrellaX = rect.left + rect.width / 2 - mapRect.left;
       const umbrellaY = rect.top + rect.height / 2 - mapRect.top;
-
       editModal.style.left = umbrellaX + 'px';
       editModal.style.top = umbrellaY + 'px';
 
@@ -129,131 +179,65 @@
       if (modalRect.right > viewportWidth) {
         editModal.style.left = (umbrellaX - (modalRect.right - viewportWidth) - 20) + 'px';
       }
-      if (modalRect.left < 0) {
-        editModal.style.left = '20px';
-      }
+      if (modalRect.left < 0) editModal.style.left = '20px';
       if (modalRect.bottom > viewportHeight) {
         editModal.style.top = (umbrellaY - (modalRect.bottom - viewportHeight) - 20) + 'px';
       }
-      if (modalRect.top < 0) {
-        editModal.style.top = '20px';
-      }
+      if (modalRect.top < 0) editModal.style.top = '20px';
     }
 
     function addListeners(el) {
-      const deleteBtn = el.querySelector('.delete-btn');
+      let offsetX = 0, offsetY = 0;
+      let isDragging = false;
+      const id = el.dataset.id;
 
-      deleteBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        e.preventDefault();
-        if (confirm('Sei sicuro di voler eliminare questo ombrellone?')) {
-          deleteUmbrella(el.dataset.id);
+      el.addEventListener('pointerdown', e => {
+        if (e.target.classList.contains('delete-btn')) return;
+        offsetX = e.offsetX;
+        offsetY = e.offsetY;
+        el.setPointerCapture(e.pointerId);
+        el.classList.add('dragging');
+        isDragging = true;
+      });
+
+      el.addEventListener('pointermove', e => {
+        if (!isDragging) return;
+        const x = e.clientX - offsetX;
+        const y = e.clientY - offsetY;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+      });
+
+      el.addEventListener('pointerup', e => {
+        if (!isDragging) return;
+        isDragging = false;
+        el.classList.remove('dragging');
+        el.releasePointerCapture(e.pointerId);
+        const updated = {
+          id,
+          x: parseInt(el.style.left),
+          y: parseInt(el.style.top),
+          lettini: parseInt(el.dataset.lettini),
+          open: el.dataset.open === 'true',
+          mtime: Date.now()
+        };
+        saveUmbrella(updated);
+      });
+
+      el.addEventListener('click', e => {
+        if (e.target.classList.contains('delete-btn')) {
+          if (confirm("Vuoi eliminare l'ombrellone?")) {
+            deleteUmbrella(id);
+          }
+          return;
         }
-      });
-
-      deleteBtn.addEventListener('pointerdown', e => {
-        e.stopPropagation();
-      });
-
-      el.onclick = e => {
-        if (e.target.closest('.delete-btn')) return;
-        if (el.classList.contains('dragging')) return;
-        currentEl = el;
         lettiniInput.value = el.dataset.lettini;
         openCheckbox.checked = el.dataset.open === 'true';
+        currentEl = el;
         modalBackdrop.style.display = 'block';
-        setTimeout(() => {
-          positionModal(el);
-        }, 10);
-      };
-
-      let isDragging = false;
-      let dragThreshold = 5;
-      let startX, startY;
-
-      el.onpointerdown = e => {
-        if (e.target.closest('.delete-btn')) return;
-
-        e.preventDefault();
-        startX = e.clientX;
-        startY = e.clientY;
-        const origX = parseInt(el.style.left);
-        const origY = parseInt(el.style.top);
-        el.setPointerCapture(e.pointerId);
-        isDragging = false;
-
-        const move = ev => {
-          const dx = ev.clientX - startX;
-          const dy = ev.clientY - startY;
-
-          if (!isDragging && (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold)) {
-            isDragging = true;
-            el.classList.add('dragging');
-          }
-
-          if (isDragging) {
-            el.style.left = origX + dx + 'px';
-            el.style.top = origY + dy + 'px';
-          }
-        };
-
-        const up = () => {
-          el.releasePointerCapture(e.pointerId);
-          el.removeEventListener('pointermove', move);
-          el.removeEventListener('pointerup', up);
-
-          if (isDragging) {
-            el.classList.remove('dragging');
-            el.dataset.mtime = Date.now();
-            updateData(el, true);
-            render(el);
-            const idx = umbrellas.findIndex(u => u.id == el.dataset.id);
-            if (idx !== -1) saveUmbrella(umbrellas[idx]);
-          }
-
-          setTimeout(() => {
-            isDragging = false;
-          }, 100);
-        };
-
-        el.addEventListener('pointermove', move);
-        el.addEventListener('pointerup', up);
-      };
+        positionModal(el);
+      });
     }
-
-    function updateData(el, posOnly = false) {
-      const idx = umbrellas.findIndex(u => u.id == el.dataset.id);
-      if (idx === -1) return;
-      umbrellas[idx].x = parseInt(el.style.left);
-      umbrellas[idx].y = parseInt(el.style.top);
-      umbrellas[idx].mtime = parseInt(el.dataset.mtime);
-      if (!posOnly) {
-        umbrellas[idx].lettini = el.dataset.lettini;
-        umbrellas[idx].open = el.dataset.open === 'true';
-      }
-    }
-
-    map.addEventListener('click', e => {
-      if (e.target !== map) return;
-
-      const rect = map.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      const id = Date.now();
-      const data = {
-        id,
-        lettini: '2',
-        open: false,
-        x: x - 70,
-        y: y - 70,
-        mtime: Date.now()
-      };
-
-      umbrellas.push(data);
-      createUmbrella(data);
-      saveUmbrella(data);
-    });
 
     cancelBtn.onclick = () => {
       modalBackdrop.style.display = 'none';
@@ -262,23 +246,35 @@
 
     saveBtn.onclick = () => {
       if (!currentEl) return;
-      currentEl.dataset.lettini = lettiniInput.value || '2';
+      currentEl.dataset.lettini = lettiniInput.value;
       currentEl.dataset.open = openCheckbox.checked;
       currentEl.dataset.mtime = Date.now();
-      updateData(currentEl);
       render(currentEl);
-      const idx = umbrellas.findIndex(u => u.id == currentEl.dataset.id);
-      if (idx !== -1) saveUmbrella(umbrellas[idx]);
+      saveUmbrella({
+        id: currentEl.dataset.id,
+        x: parseInt(currentEl.style.left),
+        y: parseInt(currentEl.style.top),
+        lettini: parseInt(currentEl.dataset.lettini),
+        open: currentEl.dataset.open === 'true',
+        mtime: parseInt(currentEl.dataset.mtime)
+      });
       modalBackdrop.style.display = 'none';
       currentEl = null;
     };
 
-    modalBackdrop.onclick = e => {
-      if (e.target === modalBackdrop) {
-        modalBackdrop.style.display = 'none';
-        currentEl = null;
-      }
-    };
+    map.addEventListener('click', e => {
+      if (e.target !== map) return;
+      const id = `umb_${Date.now()}`;
+      const data = {
+        id,
+        x: e.clientX,
+        y: e.clientY,
+        lettini: 2,
+        open: false,
+        mtime: Date.now()
+      };
+      saveUmbrella(data);
+    });
 
     load();
   </script>

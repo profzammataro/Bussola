@@ -7,9 +7,19 @@
     body {
       margin: 0;
       font-family: sans-serif;
-      background-color: #f4e7c5;
+    /* background-color: #f4e7c5;*/
     }
-    #map { width: 100vw; height: 100vh; position: relative; cursor: crosshair; }
+    #map {
+  width: 100vw;
+  height: 100dvh; /* o 100vh se preferisci, ma 100dvh è più preciso su iOS */
+  position: relative;
+  cursor: crosshair;
+
+  background-image: url('sfondo.jpg');
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center center;
+}
     .umbrella {
       width: 140px; height: 140px; position: absolute; display: flex;
       justify-content: center; align-items: center; font-size: 40px;

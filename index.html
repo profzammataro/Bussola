@@ -3,326 +3,604 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Gestione Ombrelloni Online</title>
+  <title>Gestione Ombrelloni Spiaggia</title>
   <style>
     body {
       margin: 0;
-      font-family: sans-serif;
-      background-color: #f4e4bc; /* Colore sabbia */
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f4e4bc;
       background-image: 
-        linear-gradient(to right, #ddd 1px, transparent 1px),
-        linear-gradient(to bottom, #ddd 1px, transparent 1px);
-      background-size: 140px 140px; /* Dimensioni griglia = dimensioni ombrellone */
+        linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px);
+      background-size: 120px 120px;
       background-position: 0 0;
-      background-attachment: fixed;
       min-height: 100vh;
       width: 100%;
+      overflow: hidden;
     }
 
-    #map {
+    #map-container {
       width: 100vw;
       height: 100vh;
       position: relative;
-      cursor: crosshair;
-      background: transparent; /* Trasparente per mostrare lo sfondo del body */
+      overflow: hidden;
+    }
+
+    #map {
+      width: 2000px;
+      height: 2000px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.5);
       transform-origin: center center;
       transition: transform 0.3s ease;
+      cursor: crosshair;
+      background: transparent;
     }
 
     .umbrella {
-      width: 140px; height: 140px; position: absolute; display: flex;
-      justify-content: center; align-items: center; font-size: 40px;
-      font-weight: bold; color: #000; box-sizing: border-box;
-      cursor: grab; border: 2px solid #333; background-color: gray;
-      text-align: center; padding: 10px;
-      clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%);
-      transition: transform 0.2s ease, box-shadow 0.2s ease, z-index 0.2s ease;
-      user-select: none; touch-action: none;
+      width: 120px;
+      height: 120px;
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 18px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+      box-sizing: border-box;
+      cursor: pointer;
+      border: 3px solid #333;
+      border-radius: 15px;
+      background-color: #dc3545;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      user-select: none;
+      touch-action: manipulation;
     }
 
     .umbrella:hover {
-      transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transform: scale(1.05);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     }
 
-    .umbrella.dragging {
-      cursor: grabbing; transform: scale(1.1) rotate(2deg);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.4); z-index: 1000; transition: none;
+    .umbrella.open {
+      background-color: #28a745;
     }
 
-    .umbrella.open { background-color: green; }
-    .umbrella.closed { background-color: red; }
+    .umbrella.closed {
+      background-color: #dc3545;
+    }
+
+    .umbrella-number {
+      font-size: 22px;
+      font-weight: 900;
+      margin-bottom: 2px;
+    }
+
+    .lettini-number {
+      font-size: 16px;
+      font-weight: 600;
+    }
 
     .delete-btn {
-      position: absolute; top: 10px; right: 15px; cursor: pointer;
-      font-size: 18px; color: black; user-select: none; z-index: 1;
-      padding: 2px; border-radius: 50%;
-      background: rgba(255, 255, 255, 0.8);
-      transition: background-color 0.2s ease, transform 0.2s ease;
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #ff4757;
+      color: white;
+      border: 2px solid white;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      transition: transform 0.2s ease;
     }
 
     .delete-btn:hover {
-      background: rgba(255, 0, 0, 0.2); transform: scale(1.2);
+      transform: scale(1.2);
+      background: #ff3742;
     }
 
-    .date-label {
-      position: absolute; bottom: 5px; font-size: 14px;
-      font-weight: bold; width: 100%; text-align: center;
-      pointer-events: none;
-    }
-
+    /* Modal */
     #modal-backdrop {
-      display: none; position: fixed; top: 0; left: 0; width: 100vw;
-      height: 100vh; background: rgba(0,0,0,0.5); z-index: 10;
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.6);
+      z-index: 1000;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     #edit-modal {
-      position: absolute; background: white; padding: 20px;
-      border-radius: 8px; min-width: 300px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5); transform: translate(-50%, -50%);
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 25px;
+      border-radius: 15px;
+      min-width: 320px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      animation: slideIn 0.3s ease;
     }
 
-    #edit-modal label { display: block; margin: 10px 0 5px; }
-    #edit-modal input { width: 100%; padding: 6px; font-size: 16px; }
+    @keyframes slideIn {
+      from { transform: translate(-50%, -60%); opacity: 0; }
+      to { transform: translate(-50%, -50%); opacity: 1; }
+    }
 
-    #edit-modal-buttons { margin-top: 15px; text-align: right; }
-    #edit-modal-buttons button {
-      margin-left: 10px; padding: 6px 12px; font-size: 14px;
+    #edit-modal h3 {
+      margin: 0 0 20px 0;
+      color: #333;
+      text-align: center;
+      font-size: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .form-group input[type="number"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      box-sizing: border-box;
+      transition: border-color 0.2s ease;
+    }
+
+    .form-group input[type="number"]:focus {
+      outline: none;
+      border-color: #007bff;
+    }
+
+    /* Lettini selector smart */
+    .lettini-selector {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .lettini-btn {
+      width: 50px;
+      height: 50px;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      background: white;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lettini-btn:hover {
+      border-color: #007bff;
+      transform: scale(1.05);
+    }
+
+    .lettini-btn.active {
+      background: #007bff;
+      color: white;
+      border-color: #007bff;
+    }
+
+    /* Checkbox styling */
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 15px 0;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    /* Buttons */
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 25px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 100px;
+    }
+
+    .btn-cancel {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-cancel:hover {
+      background: #5a6268;
+      transform: translateY(-1px);
+    }
+
+    .btn-save {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-save:hover {
+      background: #218838;
+      transform: translateY(-1px);
+    }
+
+    /* Zoom controls */
+    #zoom-controls {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      z-index: 100;
+    }
+
+    .zoom-btn {
+      width: 55px;
+      height: 55px;
+      font-size: 28px;
+      font-weight: bold;
+      background: white;
+      border: 3px solid #333;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #333;
     }
 
     .zoom-btn:hover {
       transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      background: #f8f9fa;
+    }
+
+    .zoom-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Info panel */
+    #info-panel {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: rgba(255,255,255,0.95);
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      font-size: 14px;
+      z-index: 100;
+    }
+
+    #info-panel h4 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 5px 0;
+    }
+
+    .info-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 2px solid #333;
     }
   </style>
 </head>
 <body>
-  <div id="map"></div>
+  <div id="map-container">
+    <div id="map"></div>
+  </div>
+
+  <!-- Info panel -->
+  <div id="info-panel">
+    <h4>Legenda</h4>
+    <div class="info-item">
+      <div class="info-color" style="background: #28a745;"></div>
+      <span>Aperto</span>
+    </div>
+    <div class="info-item">
+      <div class="info-color" style="background: #dc3545;"></div>
+      <span>Chiuso</span>
+    </div>
+    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+      Tocca per aggiungere<br>
+      Click ombrellone per modificare
+    </div>
+  </div>
+
+  <!-- Zoom controls -->
+  <div id="zoom-controls">
+    <button class="zoom-btn" id="zoom-in">+</button>
+    <button class="zoom-btn" id="zoom-out">−</button>
+  </div>
 
   <!-- Modal -->
   <div id="modal-backdrop">
     <div id="edit-modal">
       <h3>Modifica Ombrellone</h3>
-      <label for="lettini-input">Numero lettini:</label>
-      <input type="number" id="lettini-input" min="0">
-      <label for="cabina-input">Numero cabina:</label>
-      <input type="number" id="cabina-input" min="1">
-      <label><input type="checkbox" id="open-checkbox"> Ombrellone aperto</label>
-      <div id="edit-modal-buttons">
-        <button id="cancel-btn">Annulla</button>
-        <button id="save-btn">Salva</button>
+      
+      <div class="form-group">
+        <label for="cabina-input">Numero Cabina:</label>
+        <input type="number" id="cabina-input" min="1">
+      </div>
+
+      <div class="form-group">
+        <label>Numero Lettini:</label>
+        <div class="lettini-selector">
+          <button type="button" class="lettini-btn" data-value="0">0</button>
+          <button type="button" class="lettini-btn" data-value="1">1</button>
+          <button type="button" class="lettini-btn active" data-value="2">2</button>
+          <button type="button" class="lettini-btn" data-value="3">3</button>
+          <button type="button" class="lettini-btn" data-value="4">4</button>
+        </div>
+      </div>
+
+      <div class="checkbox-group">
+        <input type="checkbox" id="open-checkbox">
+        <label for="open-checkbox">Ombrellone aperto</label>
+      </div>
+
+      <div class="modal-buttons">
+        <button class="btn btn-cancel" id="cancel-btn">Annulla</button>
+        <button class="btn btn-save" id="save-btn">Salva</button>
       </div>
     </div>
   </div>
 
-  <!-- Firebase + Script -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+  <script>
+    // State management
+    let umbrellas = JSON.parse(localStorage.getItem('umbrellas') || '[]');
+    let nextCabina = Math.max(...umbrellas.map(u => u.cabina || 0), 0) + 1;
+    let currentScale = 0.5;
+    let currentUmbrella = null;
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyB2Wuo1_3Ncpzh6nwc3XsStXz7Un6SfNAw",
-      authDomain: "bussola-6417e.firebaseapp.com",
-      databaseURL: "https://bussola-6417e-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "bussola-6417e",
-      storageBucket: "bussola-6417e.firebasestorage.app",
-      messagingSenderId: "146347720208",
-      appId: "1:146347720208:web:b7bc3c5e7412d42e3a9495"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
+    // DOM elements
     const map = document.getElementById('map');
     const modalBackdrop = document.getElementById('modal-backdrop');
     const editModal = document.getElementById('edit-modal');
-    const lettiniInput = document.getElementById('lettini-input');
     const cabinaInput = document.getElementById('cabina-input');
     const openCheckbox = document.getElementById('open-checkbox');
     const cancelBtn = document.getElementById('cancel-btn');
     const saveBtn = document.getElementById('save-btn');
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    const lettiniButtons = document.querySelectorAll('.lettini-btn');
 
-    let currentEl = null;
-    let umbrellas = [];
-    let nextCabina = 1;
+    // Initialize
+    init();
 
-    function load() {
-      onValue(ref(db, 'umbrellas'), snapshot => {
-        const data = snapshot.val() || {};
-        umbrellas = [];
-        map.innerHTML = '';
-        nextCabina = 1;
-        for (const id in data) {
-          umbrellas.push(data[id]);
-          if (data[id].cabina && data[id].cabina >= nextCabina) {
-            nextCabina = data[id].cabina + 1;
-          }
-          createUmbrella(data[id]);
+    function init() {
+      loadUmbrellas();
+      setupEventListeners();
+    }
+
+    function setupEventListeners() {
+      // Map click for adding umbrellas
+      map.addEventListener('click', handleMapClick);
+
+      // Zoom controls
+      zoomInBtn.addEventListener('click', () => zoom(0.1));
+      zoomOutBtn.addEventListener('click', () => zoom(-0.1));
+
+      // Modal controls
+      cancelBtn.addEventListener('click', closeModal);
+      saveBtn.addEventListener('click', saveUmbrella);
+      modalBackdrop.addEventListener('click', (e) => {
+        if (e.target === modalBackdrop) closeModal();
+      });
+
+      // Lettini selector
+      lettiniButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          lettiniButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+
+      // Prevent zoom on double tap
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', (e) => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+          e.preventDefault();
         }
+        lastTouchEnd = now;
+      }, false);
+    }
+
+    function handleMapClick(e) {
+      if (e.target !== map) return;
+
+      const rect = map.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / currentScale;
+      const y = (e.clientY - rect.top) / currentScale;
+
+      // Snap to grid
+      const gridSize = 120;
+      const snappedX = Math.round(x / gridSize) * gridSize;
+      const snappedY = Math.round(y / gridSize) * gridSize;
+
+      const umbrella = {
+        id: Date.now(),
+        x: snappedX,
+        y: snappedY,
+        cabina: nextCabina++,
+        lettini: 2,
+        open: false
+      };
+
+      umbrellas.push(umbrella);
+      saveData();
+      createUmbrellaElement(umbrella);
+    }
+
+    function createUmbrellaElement(umbrella) {
+      const el = document.createElement('div');
+      el.className = 'umbrella';
+      el.dataset.id = umbrella.id;
+      el.style.left = umbrella.x + 'px';
+      el.style.top = umbrella.y + 'px';
+      
+      updateUmbrellaDisplay(el, umbrella);
+      addUmbrellaListeners(el);
+      
+      map.appendChild(el);
+      return el;
+    }
+
+    function updateUmbrellaDisplay(el, umbrella) {
+      el.className = `umbrella ${umbrella.open ? 'open' : 'closed'}`;
+      
+      el.innerHTML = `
+        <div class="delete-btn" title="Elimina">×</div>
+        <div class="umbrella-number">${umbrella.cabina}</div>
+        <div class="lettini-number">${umbrella.lettini} lettini</div>
+      `;
+    }
+
+    function addUmbrellaListeners(el) {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        if (e.target.classList.contains('delete-btn')) {
+          deleteUmbrella(el.dataset.id);
+          return;
+        }
+        
+        editUmbrella(el.dataset.id);
       });
     }
 
-    function saveUmbrella(data) {
-      set(ref(db, `umbrellas/${data.id}`), data);
+    function editUmbrella(id) {
+      const umbrella = umbrellas.find(u => u.id == id);
+      if (!umbrella) return;
+
+      currentUmbrella = umbrella;
+      
+      cabinaInput.value = umbrella.cabina;
+      openCheckbox.checked = umbrella.open;
+      
+      // Set lettini selector
+      lettiniButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value == umbrella.lettini);
+      });
+
+      modalBackdrop.style.display = 'block';
+    }
+
+    function saveUmbrella() {
+      if (!currentUmbrella) return;
+
+      const selectedLettini = document.querySelector('.lettini-btn.active').dataset.value;
+      
+      currentUmbrella.cabina = parseInt(cabinaInput.value);
+      currentUmbrella.lettini = parseInt(selectedLettini);
+      currentUmbrella.open = openCheckbox.checked;
+
+      const el = document.querySelector(`[data-id="${currentUmbrella.id}"]`);
+      if (el) {
+        updateUmbrellaDisplay(el, currentUmbrella);
+      }
+
+      saveData();
+      closeModal();
     }
 
     function deleteUmbrella(id) {
-      remove(ref(db, `umbrellas/${id}`));
+      if (!confirm('Vuoi eliminare questo ombrellone?')) return;
+
+      umbrellas = umbrellas.filter(u => u.id != id);
+      const el = document.querySelector(`[data-id="${id}"]`);
+      if (el) el.remove();
+      
+      saveData();
     }
 
-    function createUmbrella(data) {
-      const el = document.createElement('div');
-      el.className = 'umbrella';
-      el.dataset.id = data.id;
-      el.dataset.lettini = data.lettini;
-      el.dataset.open = data.open;
-      el.dataset.cabina = data.cabina || nextCabina++;
-      el.dataset.mtime = data.mtime;
-      el.style.left = data.x + 'px';
-      el.style.top = data.y + 'px';
-      map.appendChild(el);
-      render(el);
-    }
-
-    function render(el) {
-      const lettini = el.dataset.lettini;
-      const open = el.dataset.open === 'true';
-      el.classList.toggle('open', open);
-      el.classList.toggle('closed', !open);
-      el.innerHTML = '';
-
-      const deleteBtn = document.createElement('div');
-      deleteBtn.className = 'delete-btn';
-      deleteBtn.title = 'Elimina';
-      deleteBtn.textContent = '🗑️';
-
-      const cabinaLabel = document.createElement('div');
-      cabinaLabel.className = 'date-label';
-      cabinaLabel.textContent = 'Cabina ' + el.dataset.cabina;
-
-      el.appendChild(deleteBtn);
-      el.appendChild(cabinaLabel);
-      el.appendChild(document.createTextNode(lettini));
-      addListeners(el);
-    }
-
-    function positionModal(umbrellaEl) {
-      const rect = umbrellaEl.getBoundingClientRect();
-      const mapRect = map.getBoundingClientRect();
-      const umbrellaX = rect.left + rect.width / 2 - mapRect.left;
-      const umbrellaY = rect.top + rect.height / 2 - mapRect.top;
-      editModal.style.left = umbrellaX + 'px';
-      editModal.style.top = umbrellaY + 'px';
-
-      const modalRect = editModal.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-
-      if (modalRect.right > viewportWidth) {
-        editModal.style.left = (umbrellaX - (modalRect.right - viewportWidth) - 20) + 'px';
-      }
-      if (modalRect.left < 0) editModal.style.left = '20px';
-      if (modalRect.bottom > viewportHeight) {
-        editModal.style.top = (umbrellaY - (modalRect.bottom - viewportHeight) - 20) + 'px';
-      }
-      if (modalRect.top < 0) editModal.style.top = '20px';
-    }
-
-    function addListeners(el) {
-      let offsetX = 0, offsetY = 0;
-      let isDragging = false;
-      const id = el.dataset.id;
-
-      el.addEventListener('pointerdown', e => {
-        if (e.target.classList.contains('delete-btn')) return;
-        offsetX = e.offsetX;
-        offsetY = e.offsetY;
-        el.setPointerCapture(e.pointerId);
-        el.classList.add('dragging');
-        isDragging = true;
-      });
-
-      el.addEventListener('pointermove', e => {
-        if (!isDragging) return;
-        const x = e.clientX - offsetX;
-        const y = e.clientY - offsetY;
-        el.style.left = x + 'px';
-        el.style.top = y + 'px';
-      });
-
-      el.addEventListener('pointerup', e => {
-        if (!isDragging) return;
-        isDragging = false;
-        el.classList.remove('dragging');
-        el.releasePointerCapture(e.pointerId);
-        const updated = {
-          id,
-          x: parseInt(el.style.left),
-          y: parseInt(el.style.top),
-          lettini: parseInt(el.dataset.lettini),
-          cabina: parseInt(el.dataset.cabina),
-          open: el.dataset.open === 'true',
-          mtime: Date.now()
-        };
-        saveUmbrella(updated);
-      });
-
-      el.addEventListener('click', e => {
-        if (e.target.classList.contains('delete-btn')) {
-          if (confirm("Vuoi eliminare l'ombrellone?")) {
-            deleteUmbrella(id);
-          }
-          return;
-        }
-        lettiniInput.value = el.dataset.lettini;
-        cabinaInput.value = el.dataset.cabina;
-        openCheckbox.checked = el.dataset.open === 'true';
-        currentEl = el;
-        modalBackdrop.style.display = 'block';
-        positionModal(el);
-      });
-    }
-
-    cancelBtn.onclick = () => {
+    function closeModal() {
       modalBackdrop.style.display = 'none';
-      currentEl = null;
-    };
+      currentUmbrella = null;
+    }
 
-    saveBtn.onclick = () => {
-      if (!currentEl) return;
-      currentEl.dataset.lettini = lettiniInput.value;
-      currentEl.dataset.cabina = cabinaInput.value;
-      currentEl.dataset.open = openCheckbox.checked;
-      currentEl.dataset.mtime = Date.now();
-      render(currentEl);
-      saveUmbrella({
-        id: currentEl.dataset.id,
-        x: parseInt(currentEl.style.left),
-        y: parseInt(currentEl.style.top),
-        lettini: parseInt(currentEl.dataset.lettini),
-        cabina: parseInt(currentEl.dataset.cabina),
-        open: currentEl.dataset.open === 'true',
-        mtime: parseInt(currentEl.dataset.mtime)
+    function zoom(delta) {
+      currentScale = Math.max(0.2, Math.min(2, currentScale + delta));
+      map.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
+    }
+
+    function loadUmbrellas() {
+      map.innerHTML = '';
+      umbrellas.forEach(umbrella => {
+        createUmbrellaElement(umbrella);
       });
-      modalBackdrop.style.display = 'none';
-      currentEl = null;
-    };
+    }
 
-    map.addEventListener('click', e => {
-      if (e.target !== map) return;
+    function saveData() {
+      localStorage.setItem('umbrellas', JSON.stringify(umbrellas));
+    }
 
-      const id = `umb_${Date.now()}`;
-      const data = {
-        id,
-        x: e.clientX,
-        y: e.clientY,
-        lettini: 2,
-        cabina: nextCabina++,
-        open: false,
-        mtime: Date.now()
-      };
-      saveUmbrella(data);
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+      if (e.key === '+' || e.key === '=') zoom(0.1);
+      if (e.key === '-') zoom(-0.1);
     });
-
-    load();
   </script>
 </body>
 </html>

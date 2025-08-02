@@ -8,6 +8,13 @@
     body {
       margin: 0;
       font-family: sans-serif;
+      background-color: #f4e4bc; /* Colore sabbia */
+      background-size: cover;
+      background-repeat: no-repeat;
+      background-position: center center;
+      background-attachment: fixed;
+      min-height: 100vh;
+      width: 100%;
     }
 
     #map {
@@ -15,7 +22,7 @@
       height: 100vh;
       position: relative;
       cursor: crosshair;
-      background-color: #f4e4bc; /* Colore sabbia */
+      background: transparent; /* Trasparente per mostrare lo sfondo del body */
       transform-origin: center center;
       transition: transform 0.3s ease;
     }

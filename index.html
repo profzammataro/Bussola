@@ -2,15 +2,23 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Gestione Ombrelloni Online</title>
   <style>
     body {
       margin: 0;
       font-family: sans-serif;
+      /* Fix per iOS - previene il bounce scroll */
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
 
     #map {
       width: 100vw;
+      height: 100vh; /* Cambiato da 100dvh a 100vh per compatibilità iOS */
+      /* Fallback per dispositivi che non supportano dvh */
       height: 100dvh;
       position: relative;
       cursor: crosshair;
@@ -18,8 +26,26 @@
       background-size: cover;
       background-repeat: no-repeat;
       background-position: center center;
+      /* Fix specifico per iOS */
+      background-attachment: scroll; /* iOS non supporta bene fixed */
       transform-origin: center center;
       transition: transform 0.3s ease;
+      /* Assicura che il contenitore abbia dimensioni minime */
+      min-height: 100vh;
+      min-width: 100vw;
+    }
+
+    /* Media query specifica per iOS */
+    @supports (-webkit-touch-callout: none) {
+      #map {
+        /* iOS Safari specific fixes */
+        height: -webkit-fill-available;
+        min-height: -webkit-fill-available;
+      }
+      
+      body {
+        height: -webkit-fill-available;
+      }
     }
 
     .umbrella {
@@ -168,6 +194,28 @@
     let umbrellas = [];
     let nextCabina = 1;
     let scale = 1;
+
+    // Fix per iOS - aggiusta l'altezza della viewport
+    function setViewportHeight() {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+      
+      // Aggiorna l'altezza del map se necessario
+      if (window.visualViewport) {
+        map.style.height = `${window.visualViewport.height}px`;
+      }
+    }
+
+    // Chiama la funzione al caricamento e quando la viewport cambia
+    setViewportHeight();
+    window.addEventListener('resize', setViewportHeight);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(setViewportHeight, 100);
+    });
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', setViewportHeight);
+    }
 
     function applyZoom() {
       map.style.transform = `scale(${scale})`;

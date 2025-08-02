@@ -52,21 +52,13 @@
       color: white;
       text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
       box-sizing: border-box;
-      cursor: grab;
+      cursor: pointer;
       border: 3px solid #333;
       border-radius: 15px;
       background-color: #dc3545;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       user-select: none;
-      touch-action: none;
-    }
-
-    .umbrella.dragging {
-      cursor: grabbing;
-      transform: scale(1.1) rotate(2deg);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-      z-index: 1000;
-      transition: none;
+      touch-action: manipulation;
     }
 
     .umbrella:hover {
@@ -370,8 +362,7 @@
     </div>
     <div style="margin-top: 10px; font-size: 12px; color: #666;">
       Tocca per aggiungere<br>
-      Click per modificare<br>
-      Trascina per spostare
+      Click ombrellone per modificare
     </div>
   </div>
 
@@ -526,83 +517,15 @@
     }
 
     function addUmbrellaListeners(el) {
-      let isDragging = false;
-      let startX, startY;
-      let offsetX, offsetY;
-
-      // Pointer events for drag and drop
-      el.addEventListener('pointerdown', (e) => {
-        if (e.target.classList.contains('delete-btn')) return;
-        
-        isDragging = true;
-        el.classList.add('dragging');
-        el.setPointerCapture(e.pointerId);
-        
-        const rect = el.getBoundingClientRect();
-        const mapRect = map.getBoundingClientRect();
-        
-        offsetX = e.clientX - rect.left;
-        offsetY = e.clientY - rect.top;
-        startX = e.clientX;
-        startY = e.clientY;
-        
-        e.preventDefault();
-      });
-
-      el.addEventListener('pointermove', (e) => {
-        if (!isDragging) return;
-        
-        const mapRect = map.getBoundingClientRect();
-        const x = (e.clientX - mapRect.left - offsetX) / currentScale;
-        const y = (e.clientY - mapRect.top - offsetY) / currentScale;
-        
-        el.style.left = x + 'px';
-        el.style.top = y + 'px';
-        
-        e.preventDefault();
-      });
-
-      el.addEventListener('pointerup', (e) => {
-        if (!isDragging) return;
-        
-        isDragging = false;
-        el.classList.remove('dragging');
-        el.releasePointerCapture(e.pointerId);
-        
-        // Check if it was a click (minimal movement) or a drag
-        const moveDistance = Math.sqrt(
-          Math.pow(e.clientX - startX, 2) + Math.pow(e.clientY - startY, 2)
-        );
-        
-        if (moveDistance < 5) {
-          // It was a click, open edit modal
-          editUmbrella(el.dataset.id);
-        } else {
-          // It was a drag, snap to grid and save position
-          const gridSize = 120;
-          const currentX = parseInt(el.style.left);
-          const currentY = parseInt(el.style.top);
-          
-          const snappedX = Math.round(currentX / gridSize) * gridSize;
-          const snappedY = Math.round(currentY / gridSize) * gridSize;
-          
-          el.style.left = snappedX + 'px';
-          el.style.top = snappedY + 'px';
-          
-          // Update umbrella data
-          const umbrella = umbrellas.find(u => u.id == el.dataset.id);
-          if (umbrella) {
-            umbrella.x = snappedX;
-            umbrella.y = snappedY;
-            saveData();
-          }
-        }
-      });
-
-      // Handle delete button
-      el.querySelector('.delete-btn').addEventListener('click', (e) => {
+      el.addEventListener('click', (e) => {
         e.stopPropagation();
-        deleteUmbrella(el.dataset.id);
+        
+        if (e.target.classList.contains('delete-btn')) {
+          deleteUmbrella(el.dataset.id);
+          return;
+        }
+        
+        editUmbrella(el.dataset.id);
       });
     }
 

@@ -52,13 +52,21 @@
       color: white;
       text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
       box-sizing: border-box;
-      cursor: pointer;
+      cursor: grab;
       border: 3px solid #333;
       border-radius: 15px;
       background-color: #dc3545;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       user-select: none;
-      touch-action: manipulation;
+      touch-action: none;
+    }
+
+    .umbrella.dragging {
+      cursor: grabbing;
+      transform: scale(1.1) rotate(2deg);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+      z-index: 1000;
+      transition: none;
     }
 
     .umbrella:hover {
@@ -362,7 +370,8 @@
     </div>
     <div style="margin-top: 10px; font-size: 12px; color: #666;">
       Tocca per aggiungere<br>
-      Click ombrellone per modificare
+      Click per modificare<br>
+      Trascina per spostare
     </div>
   </div>
 
@@ -405,10 +414,29 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    // Firebase imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyB2Wuo1_3Ncpzh6nwc3XsStXz7Un6SfNAw",
+      authDomain: "bussola-6417e.firebaseapp.com",
+      databaseURL: "https://bussola-6417e-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "bussola-6417e",
+      storageBucket: "bussola-6417e.firebasestorage.app",
+      messagingSenderId: "146347720208",
+      appId: "1:146347720208:web:b7bc3c5e7412d42e3a9495"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
     // State management
-    let umbrellas = JSON.parse(localStorage.getItem('umbrellas') || '[]');
-    let nextCabina = Math.max(...umbrellas.map(u => u.cabina || 0), 0) + 1;
+    let umbrellas = [];
+    let nextCabina = 1;
     let currentScale = 0.5;
     let currentUmbrella = null;
 
@@ -428,8 +456,8 @@
     init();
 
     function init() {
-      loadUmbrellas();
       setupEventListeners();
+      loadUmbrellasFromFirebase();
     }
 
     function setupEventListeners() {
@@ -466,6 +494,31 @@
       }, false);
     }
 
+    function loadUmbrellasFromFirebase() {
+      onValue(ref(db, 'umbrellas'), (snapshot) => {
+        const data = snapshot.val() || {};
+        umbrellas = [];
+        map.innerHTML = '';
+        nextCabina = 1;
+
+        for (const id in data) {
+          umbrellas.push(data[id]);
+          if (data[id].cabina && data[id].cabina >= nextCabina) {
+            nextCabina = data[id].cabina + 1;
+          }
+          createUmbrellaElement(data[id]);
+        }
+      });
+    }
+
+    function saveUmbrellaToFirebase(umbrella) {
+      set(ref(db, `umbrellas/${umbrella.id}`), umbrella);
+    }
+
+    function deleteUmbrellaFromFirebase(id) {
+      remove(ref(db, `umbrellas/${id}`));
+    }
+
     function handleMapClick(e) {
       if (e.target !== map) return;
 
@@ -479,17 +532,16 @@
       const snappedY = Math.round(y / gridSize) * gridSize;
 
       const umbrella = {
-        id: Date.now(),
+        id: `umb_${Date.now()}`,
         x: snappedX,
         y: snappedY,
         cabina: nextCabina++,
         lettini: 2,
-        open: false
+        open: false,
+        mtime: Date.now()
       };
 
-      umbrellas.push(umbrella);
-      saveData();
-      createUmbrellaElement(umbrella);
+      saveUmbrellaToFirebase(umbrella);
     }
 
     function createUmbrellaElement(umbrella) {
@@ -517,15 +569,84 @@
     }
 
     function addUmbrellaListeners(el) {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
+      let isDragging = false;
+      let startX, startY;
+      let offsetX, offsetY;
+
+      // Pointer events for drag and drop
+      el.addEventListener('pointerdown', (e) => {
+        if (e.target.classList.contains('delete-btn')) return;
         
-        if (e.target.classList.contains('delete-btn')) {
-          deleteUmbrella(el.dataset.id);
-          return;
+        isDragging = true;
+        el.classList.add('dragging');
+        el.setPointerCapture(e.pointerId);
+        
+        const rect = el.getBoundingClientRect();
+        const mapRect = map.getBoundingClientRect();
+        
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+        startX = e.clientX;
+        startY = e.clientY;
+        
+        e.preventDefault();
+      });
+
+      el.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        
+        const mapRect = map.getBoundingClientRect();
+        const x = (e.clientX - mapRect.left - offsetX) / currentScale;
+        const y = (e.clientY - mapRect.top - offsetY) / currentScale;
+        
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        
+        e.preventDefault();
+      });
+
+      el.addEventListener('pointerup', (e) => {
+        if (!isDragging) return;
+        
+        isDragging = false;
+        el.classList.remove('dragging');
+        el.releasePointerCapture(e.pointerId);
+        
+        // Check if it was a click (minimal movement) or a drag
+        const moveDistance = Math.sqrt(
+          Math.pow(e.clientX - startX, 2) + Math.pow(e.clientY - startY, 2)
+        );
+        
+        if (moveDistance < 5) {
+          // It was a click, open edit modal
+          editUmbrella(el.dataset.id);
+        } else {
+          // It was a drag, snap to grid and save position
+          const gridSize = 120;
+          const currentX = parseInt(el.style.left);
+          const currentY = parseInt(el.style.top);
+          
+          const snappedX = Math.round(currentX / gridSize) * gridSize;
+          const snappedY = Math.round(currentY / gridSize) * gridSize;
+          
+          el.style.left = snappedX + 'px';
+          el.style.top = snappedY + 'px';
+          
+          // Update umbrella data and save to Firebase
+          const umbrella = umbrellas.find(u => u.id == el.dataset.id);
+          if (umbrella) {
+            umbrella.x = snappedX;
+            umbrella.y = snappedY;
+            umbrella.mtime = Date.now();
+            saveUmbrellaToFirebase(umbrella);
+          }
         }
-        
-        editUmbrella(el.dataset.id);
+      });
+
+      // Handle delete button
+      el.querySelector('.delete-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteUmbrella(el.dataset.id);
       });
     }
 
@@ -554,24 +675,21 @@
       currentUmbrella.cabina = parseInt(cabinaInput.value);
       currentUmbrella.lettini = parseInt(selectedLettini);
       currentUmbrella.open = openCheckbox.checked;
+      currentUmbrella.mtime = Date.now();
 
       const el = document.querySelector(`[data-id="${currentUmbrella.id}"]`);
       if (el) {
         updateUmbrellaDisplay(el, currentUmbrella);
       }
 
-      saveData();
+      saveUmbrellaToFirebase(currentUmbrella);
       closeModal();
     }
 
     function deleteUmbrella(id) {
       if (!confirm('Vuoi eliminare questo ombrellone?')) return;
 
-      umbrellas = umbrellas.filter(u => u.id != id);
-      const el = document.querySelector(`[data-id="${id}"]`);
-      if (el) el.remove();
-      
-      saveData();
+      deleteUmbrellaFromFirebase(id);
     }
 
     function closeModal() {
@@ -582,17 +700,6 @@
     function zoom(delta) {
       currentScale = Math.max(0.2, Math.min(2, currentScale + delta));
       map.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
-    }
-
-    function loadUmbrellas() {
-      map.innerHTML = '';
-      umbrellas.forEach(umbrella => {
-        createUmbrellaElement(umbrella);
-      });
-    }
-
-    function saveData() {
-      localStorage.setItem('umbrellas', JSON.stringify(umbrellas));
     }
 
     // Keyboard shortcuts

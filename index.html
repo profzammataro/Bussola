@@ -2,50 +2,22 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
   <title>Gestione Ombrelloni Online</title>
   <style>
     body {
       margin: 0;
       font-family: sans-serif;
-      /* Fix per iOS - previene il bounce scroll */
-      position: fixed;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
     }
 
     #map {
       width: 100vw;
-      height: 100vh; /* Cambiato da 100dvh a 100vh per compatibilità iOS */
-      /* Fallback per dispositivi che non supportano dvh */
-      height: 100dvh;
+      height: 100vh;
       position: relative;
       cursor: crosshair;
-      background-image: url('bussola.jpg');
-      background-size: cover;
-      background-repeat: no-repeat;
-      background-position: center center;
-      /* Fix specifico per iOS */
-      background-attachment: scroll; /* iOS non supporta bene fixed */
+      background-color: #f4e4bc; /* Colore sabbia */
       transform-origin: center center;
       transition: transform 0.3s ease;
-      /* Assicura che il contenitore abbia dimensioni minime */
-      min-height: 100vh;
-      min-width: 100vw;
-    }
-
-    /* Media query specifica per iOS */
-    @supports (-webkit-touch-callout: none) {
-      #map {
-        /* iOS Safari specific fixes */
-        height: -webkit-fill-available;
-        min-height: -webkit-fill-available;
-      }
-      
-      body {
-        height: -webkit-fill-available;
-      }
     }
 
     .umbrella {
@@ -108,29 +80,6 @@
       margin-left: 10px; padding: 6px 12px; font-size: 14px;
     }
 
-    /* Zoom buttons */
-    #zoom-controls {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      z-index: 20;
-    }
-
-    .zoom-btn {
-      width: 40px;
-      height: 40px;
-      font-size: 24px;
-      background: white;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      cursor: pointer;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-      transition: transform 0.2s ease;
-    }
-
     .zoom-btn:hover {
       transform: scale(1.1);
     }
@@ -138,12 +87,6 @@
 </head>
 <body>
   <div id="map"></div>
-
-  <!-- Zoom buttons -->
-  <div id="zoom-controls">
-    <button class="zoom-btn" id="zoom-in">+</button>
-    <button class="zoom-btn" id="zoom-out">−</button>
-  </div>
 
   <!-- Modal -->
   <div id="modal-backdrop">
@@ -187,53 +130,10 @@
     const openCheckbox = document.getElementById('open-checkbox');
     const cancelBtn = document.getElementById('cancel-btn');
     const saveBtn = document.getElementById('save-btn');
-    const zoomInBtn = document.getElementById('zoom-in');
-    const zoomOutBtn = document.getElementById('zoom-out');
 
     let currentEl = null;
     let umbrellas = [];
     let nextCabina = 1;
-    let scale = 1;
-
-    // Fix per iOS - aggiusta l'altezza della viewport
-    function setViewportHeight() {
-      const vh = window.innerHeight * 0.01;
-      document.documentElement.style.setProperty('--vh', `${vh}px`);
-      
-      // Aggiorna l'altezza del map se necessario
-      if (window.visualViewport) {
-        map.style.height = `${window.visualViewport.height}px`;
-      }
-    }
-
-    // Chiama la funzione al caricamento e quando la viewport cambia
-    setViewportHeight();
-    window.addEventListener('resize', setViewportHeight);
-    window.addEventListener('orientationchange', () => {
-      setTimeout(setViewportHeight, 100);
-    });
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', setViewportHeight);
-    }
-
-    function applyZoom() {
-      map.style.transform = `scale(${scale})`;
-    }
-
-    zoomInBtn.addEventListener('click', () => {
-      if (scale < 2) {
-        scale = Math.min(2, scale + 0.1);
-        applyZoom();
-      }
-    });
-
-    zoomOutBtn.addEventListener('click', () => {
-      if (scale > 0.1) {
-        scale = Math.max(0.1, scale - 0.1);
-        applyZoom();
-      }
-    });
 
     function load() {
       onValue(ref(db, 'umbrellas'), snapshot => {

@@ -27,12 +27,12 @@
     }
 
     #map {
-      width: 5000px;
-      height: 5000px;
+      width: 3500px;
+      height: 3500px;
       position: absolute;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%) scale(0.3);
+      transform: translate(-50%, -50%) scale(0.4);
       transform-origin: center center;
       transition: transform 0.3s ease;
       cursor: crosshair;
@@ -76,6 +76,10 @@
 
     .umbrella.open {
       background-color: #28a745;
+    }
+
+    .umbrella.to-open {
+      background-color: #ffc107;
     }
 
     .umbrella.closed {
@@ -320,7 +324,37 @@
     }
 
 
-  </style>
+    /* Info panel */
+    #info-panel {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: rgba(255,255,255,0.95);
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      font-size: 14px;
+      z-index: 100;
+    }
+
+    #info-panel h4 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 5px 0;
+    }
+
+    .info-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 2px solid #333;
+    }
 </head>
 <body>
   <div id="map-container">
@@ -354,9 +388,13 @@
         </div>
       </div>
 
-      <div class="checkbox-group">
-        <input type="checkbox" id="open-checkbox">
-        <label for="open-checkbox">Ombrellone aperto</label>
+      <div class="form-group">
+        <label>Stato Ombrellone:</label>
+        <div class="lettini-selector">
+          <button type="button" class="status-btn" data-value="closed" style="background: #dc3545; color: white; border-color: #dc3545;">Chiuso</button>
+          <button type="button" class="status-btn" data-value="to-open" style="background: #ffc107; color: #333; border-color: #ffc107;">Da aprire</button>
+          <button type="button" class="status-btn" data-value="open" style="background: #28a745; color: white; border-color: #28a745;">Aperto</button>
+        </div>
       </div>
 
       <div class="modal-buttons">
@@ -389,7 +427,7 @@
     // State management
     let umbrellas = [];
     let nextCabina = 1;
-    let currentScale = 0.3;
+    let currentScale = 0.4;
     let currentUmbrella = null;
 
     // DOM elements
@@ -397,12 +435,12 @@
     const modalBackdrop = document.getElementById('modal-backdrop');
     const editModal = document.getElementById('edit-modal');
     const cabinaInput = document.getElementById('cabina-input');
-    const openCheckbox = document.getElementById('open-checkbox');
     const cancelBtn = document.getElementById('cancel-btn');
     const saveBtn = document.getElementById('save-btn');
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
     const lettiniButtons = document.querySelectorAll('.lettini-btn');
+    const statusButtons = document.querySelectorAll('.status-btn');
 
     // Initialize
     init();
@@ -431,6 +469,14 @@
       lettiniButtons.forEach(btn => {
         btn.addEventListener('click', () => {
           lettiniButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+
+      // Status selector
+      statusButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          statusButtons.forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
         });
       });
@@ -481,7 +527,7 @@
       const y = (e.clientY - mapRect.top) / currentScale;
 
       // Verifica che le coordinate siano dentro i limiti della mappa
-      if (x < 0 || y < 0 || x > 5000 || y > 5000) return;
+      if (x < 0 || y < 0 || x > 3500 || y > 3500) return;
 
       // Snap to grid
       const gridSize = 120;
@@ -494,7 +540,7 @@
         y: snappedY,
         cabina: nextCabina++,
         lettini: 2,
-        open: false,
+        status: 'closed',
         mtime: Date.now()
       };
 
@@ -516,7 +562,7 @@
     }
 
     function updateUmbrellaDisplay(el, umbrella) {
-      el.className = `umbrella ${umbrella.open ? 'open' : 'closed'}`;
+      el.className = `umbrella ${umbrella.status || 'closed'}`;
       
       el.innerHTML = `
         <div class="delete-btn" title="Elimina">×</div>
@@ -614,11 +660,15 @@
       currentUmbrella = umbrella;
       
       cabinaInput.value = umbrella.cabina;
-      openCheckbox.checked = umbrella.open;
       
       // Set lettini selector
       lettiniButtons.forEach(btn => {
         btn.classList.toggle('active', btn.dataset.value == umbrella.lettini);
+      });
+
+      // Set status selector
+      statusButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value == (umbrella.status || 'closed'));
       });
 
       modalBackdrop.style.display = 'block';
@@ -628,10 +678,11 @@
       if (!currentUmbrella) return;
 
       const selectedLettini = document.querySelector('.lettini-btn.active').dataset.value;
+      const selectedStatus = document.querySelector('.status-btn.active').dataset.value;
       
       currentUmbrella.cabina = parseInt(cabinaInput.value);
       currentUmbrella.lettini = parseInt(selectedLettini);
-      currentUmbrella.open = openCheckbox.checked;
+      currentUmbrella.status = selectedStatus;
       currentUmbrella.mtime = Date.now();
 
       const el = document.querySelector(`[data-id="${currentUmbrella.id}"]`);

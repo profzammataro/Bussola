@@ -27,12 +27,12 @@
     }
 
     #map {
-      width: 2000px;
-      height: 2000px;
+      width: 5000px;
+      height: 5000px;
       position: absolute;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%) scale(0.5);
+      transform: translate(-50%, -50%) scale(0.3);
       transform-origin: center center;
       transition: transform 0.3s ease;
       cursor: crosshair;
@@ -389,7 +389,7 @@
     // State management
     let umbrellas = [];
     let nextCabina = 1;
-    let currentScale = 0.5;
+    let currentScale = 0.3;
     let currentUmbrella = null;
 
     // DOM elements
@@ -472,11 +472,16 @@
     }
 
     function handleMapClick(e) {
+      // Verifica che il click sia effettivamente sulla mappa
       if (e.target !== map) return;
 
-      const rect = map.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / currentScale;
-      const y = (e.clientY - rect.top) / currentScale;
+      // Ottieni le coordinate relative alla mappa trasformata
+      const mapRect = map.getBoundingClientRect();
+      const x = (e.clientX - mapRect.left) / currentScale;
+      const y = (e.clientY - mapRect.top) / currentScale;
+
+      // Verifica che le coordinate siano dentro i limiti della mappa
+      if (x < 0 || y < 0 || x > 5000 || y > 5000) return;
 
       // Snap to grid
       const gridSize = 120;
@@ -650,7 +655,7 @@
     }
 
     function zoom(delta) {
-      currentScale = Math.max(0.2, Math.min(2, currentScale + delta));
+      currentScale = Math.max(0.1, Math.min(2, currentScale + delta));
       map.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
     }
 

@@ -225,25 +225,26 @@
       border-color: #007bff;
     }
 
-    /* Checkbox styling */
-    .checkbox-group {
+    .status-btn {
+      width: 80px;
+      height: 50px;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      margin: 15px 0;
     }
 
-    .checkbox-group input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
+    .status-btn:hover {
+      transform: scale(1.05);
     }
 
-    .checkbox-group label {
-      margin: 0;
-      cursor: pointer;
-      font-size: 16px;
+    .status-btn.active {
+      box-shadow: 0 0 0 3px rgba(0,123,255,0.3);
     }
 
     /* Buttons */
@@ -323,7 +324,6 @@
       transform: scale(0.95);
     }
 
-
     /* Info panel */
     #info-panel {
       position: fixed;
@@ -355,10 +355,33 @@
       border-radius: 4px;
       border: 2px solid #333;
     }
+  </style>
 </head>
 <body>
   <div id="map-container">
     <div id="map"></div>
+  </div>
+
+  <!-- Info panel -->
+  <div id="info-panel">
+    <h4>Legenda</h4>
+    <div class="info-item">
+      <div class="info-color" style="background: #28a745;"></div>
+      <span>Aperto</span>
+    </div>
+    <div class="info-item">
+      <div class="info-color" style="background: #ffc107;"></div>
+      <span>Da aprire</span>
+    </div>
+    <div class="info-item">
+      <div class="info-color" style="background: #dc3545;"></div>
+      <span>Chiuso</span>
+    </div>
+    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+      Tocca per aggiungere<br>
+      Click per modificare<br>
+      Trascina per spostare
+    </div>
   </div>
 
   <!-- Zoom controls -->
@@ -391,7 +414,7 @@
       <div class="form-group">
         <label>Stato Ombrellone:</label>
         <div class="lettini-selector">
-          <button type="button" class="status-btn" data-value="closed" style="background: #dc3545; color: white; border-color: #dc3545;">Chiuso</button>
+          <button type="button" class="status-btn active" data-value="closed" style="background: #dc3545; color: white; border-color: #dc3545;">Chiuso</button>
           <button type="button" class="status-btn" data-value="to-open" style="background: #ffc107; color: #333; border-color: #ffc107;">Da aprire</button>
           <button type="button" class="status-btn" data-value="open" style="background: #28a745; color: white; border-color: #28a745;">Aperto</button>
         </div>

@@ -286,55 +286,25 @@
       transform: translateY(-1px);
     }
 
-    /* Zoom controls */
-    #zoom-controls {
+    /* Top controls panel */
+    #top-controls {
       position: fixed;
-      bottom: 30px;
-      right: 30px;
+      top: 20px;
+      left: 20px;
+      right: 20px;
       display: flex;
-      flex-direction: column;
-      gap: 15px;
+      gap: 20px;
       z-index: 100;
-    }
-
-    .zoom-btn {
-      width: 55px;
-      height: 55px;
-      font-size: 28px;
-      font-weight: bold;
-      background: white;
-      border: 3px solid #333;
-      border-radius: 50%;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #333;
-    }
-
-    .zoom-btn:hover {
-      transform: scale(1.1);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-      background: #f8f9fa;
-    }
-
-    .zoom-btn:active {
-      transform: scale(0.95);
     }
 
     /* Info panel */
     #info-panel {
-      position: fixed;
-      top: 20px;
-      left: 20px;
       background: rgba(255,255,255,0.95);
       padding: 15px;
       border-radius: 10px;
       box-shadow: 0 4px 15px rgba(0,0,0,0.2);
       font-size: 14px;
-      z-index: 100;
+      min-width: 200px;
     }
 
     #info-panel h4 {
@@ -355,6 +325,85 @@
       border-radius: 4px;
       border: 2px solid #333;
     }
+
+    /* Zoom control panel */
+    #zoom-panel {
+      background: rgba(255,255,255,0.95);
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      min-width: 300px;
+    }
+
+    #zoom-panel label {
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    #zoom-slider {
+      flex: 1;
+      height: 8px;
+      border-radius: 4px;
+      background: #ddd;
+      outline: none;
+      appearance: none;
+      cursor: pointer;
+    }
+
+    #zoom-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #007bff;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
+    }
+
+    #zoom-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+      background: #0056b3;
+    }
+
+    #zoom-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #007bff;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+
+    #zoom-value {
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+      min-width: 40px;
+      text-align: center;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      #top-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      #zoom-panel {
+        min-width: auto;
+      }
+
+      #info-panel {
+        min-width: auto;
+      }
+    }
   </style>
 </head>
 <body>
@@ -362,32 +411,36 @@
     <div id="map"></div>
   </div>
 
-  <!-- Info panel -->
-  <div id="info-panel">
-    <h4>Legenda</h4>
-    <div class="info-item">
-      <div class="info-color" style="background: #28a745;"></div>
-      <span>Aperto</span>
+  <!-- Top controls -->
+  <div id="top-controls">
+    <!-- Info panel -->
+    <div id="info-panel">
+      <h4>Legenda</h4>
+      <div class="info-item">
+        <div class="info-color" style="background: #28a745;"></div>
+        <span>Aperto</span>
+      </div>
+      <div class="info-item">
+        <div class="info-color" style="background: #ffc107;"></div>
+        <span>Da aprire</span>
+      </div>
+      <div class="info-item">
+        <div class="info-color" style="background: #dc3545;"></div>
+        <span>Chiuso</span>
+      </div>
+      <div style="margin-top: 10px; font-size: 12px; color: #666;">
+        Tocca per aggiungere<br>
+        Click per modificare<br>
+        Trascina per spostare
+      </div>
     </div>
-    <div class="info-item">
-      <div class="info-color" style="background: #ffc107;"></div>
-      <span>Da aprire</span>
-    </div>
-    <div class="info-item">
-      <div class="info-color" style="background: #dc3545;"></div>
-      <span>Chiuso</span>
-    </div>
-    <div style="margin-top: 10px; font-size: 12px; color: #666;">
-      Tocca per aggiungere<br>
-      Click per modificare<br>
-      Trascina per spostare
-    </div>
-  </div>
 
-  <!-- Zoom controls -->
-  <div id="zoom-controls">
-    <button class="zoom-btn" id="zoom-in">+</button>
-    <button class="zoom-btn" id="zoom-out">−</button>
+    <!-- Zoom control panel -->
+    <div id="zoom-panel">
+      <label for="zoom-slider">Zoom:</label>
+      <input type="range" id="zoom-slider" min="0.1" max="2.5" step="0.1" value="0.4">
+      <span id="zoom-value">0.4x</span>
+    </div>
   </div>
 
   <!-- Modal -->
@@ -460,8 +513,8 @@
     const cabinaInput = document.getElementById('cabina-input');
     const cancelBtn = document.getElementById('cancel-btn');
     const saveBtn = document.getElementById('save-btn');
-    const zoomInBtn = document.getElementById('zoom-in');
-    const zoomOutBtn = document.getElementById('zoom-out');
+    const zoomSlider = document.getElementById('zoom-slider');
+    const zoomValue = document.getElementById('zoom-value');
     const lettiniButtons = document.querySelectorAll('.lettini-btn');
     const statusButtons = document.querySelectorAll('.status-btn');
 
@@ -477,9 +530,11 @@
       // Map click for adding umbrellas
       map.addEventListener('click', handleMapClick);
 
-      // Zoom controls
-      zoomInBtn.addEventListener('click', () => zoom(0.1));
-      zoomOutBtn.addEventListener('click', () => zoom(-0.1));
+      // Zoom slider
+      zoomSlider.addEventListener('input', (e) => {
+        currentScale = parseFloat(e.target.value);
+        updateZoom();
+      });
 
       // Modal controls
       cancelBtn.addEventListener('click', closeModal);
@@ -513,6 +568,11 @@
         }
         lastTouchEnd = now;
       }, false);
+    }
+
+    function updateZoom() {
+      map.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
+      zoomValue.textContent = currentScale.toFixed(1) + 'x';
     }
 
     function loadUmbrellasFromFirebase() {
@@ -728,16 +788,19 @@
       currentUmbrella = null;
     }
 
-    function zoom(delta) {
-      currentScale = Math.max(0.1, Math.min(2, currentScale + delta));
-      map.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
-    }
-
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeModal();
-      if (e.key === '+' || e.key === '=') zoom(0.1);
-      if (e.key === '-') zoom(-0.1);
+      if (e.key === '+' || e.key === '=') {
+        currentScale = Math.min(2.5, currentScale + 0.1);
+        zoomSlider.value = currentScale;
+        updateZoom();
+      }
+      if (e.key === '-') {
+        currentScale = Math.max(0.1, currentScale - 0.1);
+        zoomSlider.value = currentScale;
+        updateZoom();
+      }
     });
   </script>
 </body>

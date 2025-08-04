@@ -297,6 +297,132 @@
       z-index: 100;
     }
 
+    /* Vertical Pan Y slider */
+    #pan-y-container {
+      position: fixed;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 300px;
+      width: 40px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #pan-y-slider {
+      writing-mode: bt-lr;
+      -webkit-appearance: slider-vertical;
+      width: 8px;
+      height: 250px;
+      background: rgba(255,255,255,0.9);
+      outline: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #pan-y-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #dc3545;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      transition: all 0.2s ease;
+    }
+
+    #pan-y-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+      background: #c82333;
+    }
+
+    #pan-y-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #dc3545;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .pan-y-label {
+      background: rgba(255,255,255,0.95);
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #333;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      text-align: center;
+      min-width: 30px;
+    }
+
+    /* Horizontal Pan X slider */
+    #pan-x-container {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 300px;
+      height: 40px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #pan-x-slider {
+      flex: 1;
+      height: 8px;
+      background: rgba(255,255,255,0.9);
+      outline: none;
+      border-radius: 4px;
+      cursor: pointer;
+      appearance: none;
+    }
+
+    #pan-x-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #28a745;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      transition: all 0.2s ease;
+    }
+
+    #pan-x-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+      background: #218838;
+    }
+
+    #pan-x-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #28a745;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .pan-x-label {
+      background: rgba(255,255,255,0.95);
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #333;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      text-align: center;
+      min-width: 30px;
+    }
+
     /* Info panel */
     #info-panel {
       background: rgba(255,255,255,0.95);
@@ -389,36 +515,12 @@
       text-align: center;
     }
 
-    /* Pan sliders with different colors */
-    #pan-x-slider::-webkit-slider-thumb {
-      background: #28a745;
-    }
-
-    #pan-x-slider::-webkit-slider-thumb:hover {
-      background: #218838;
-    }
-
-    #pan-x-slider::-moz-range-thumb {
-      background: #28a745;
-    }
-
-    #pan-y-slider::-webkit-slider-thumb {
-      background: #dc3545;
-    }
-
-    #pan-y-slider::-webkit-slider-thumb:hover {
-      background: #c82333;
-    }
-
-    #pan-y-slider::-moz-range-thumb {
-      background: #dc3545;
-    }
-
     /* Responsive adjustments */
     @media (max-width: 768px) {
       #top-controls {
         flex-direction: column;
         align-items: stretch;
+        right: 80px; /* Make space for vertical slider */
       }
 
       .control-panel {
@@ -427,6 +529,18 @@
 
       #info-panel {
         min-width: auto;
+      }
+
+      #pan-y-container {
+        height: 200px;
+      }
+
+      #pan-y-slider {
+        height: 150px;
+      }
+
+      #pan-x-container {
+        width: 200px;
       }
     }
   </style>
@@ -466,20 +580,20 @@
       <input type="range" id="zoom-slider" class="control-slider" min="0.1" max="2.5" step="0.1" value="0.4">
       <span id="zoom-value" class="control-value">0.4x</span>
     </div>
+  </div>
 
-    <!-- Pan X control panel -->
-    <div id="pan-x-panel" class="control-panel">
-      <label for="pan-x-slider">Pan X:</label>
-      <input type="range" id="pan-x-slider" class="control-slider" min="-1000" max="1000" step="10" value="0">
-      <span id="pan-x-value" class="control-value">0</span>
-    </div>
+  <!-- Vertical Pan Y slider -->
+  <div id="pan-y-container">
+    <div class="pan-y-label" id="pan-y-value">0</div>
+    <input type="range" id="pan-y-slider" min="-1000" max="1000" step="10" value="0" orient="vertical">
+    <div class="pan-y-label">Y</div>
+  </div>
 
-    <!-- Pan Y control panel -->
-    <div id="pan-y-panel" class="control-panel">
-      <label for="pan-y-slider">Pan Y:</label>
-      <input type="range" id="pan-y-slider" class="control-slider" min="-1000" max="1000" step="10" value="0">
-      <span id="pan-y-value" class="control-value">0</span>
-    </div>
+  <!-- Horizontal Pan X slider -->
+  <div id="pan-x-container">
+    <div class="pan-x-label">X</div>
+    <input type="range" id="pan-x-slider" min="-1000" max="1000" step="10" value="0">
+    <div class="pan-x-label" id="pan-x-value">0</div>
   </div>
 
   <!-- Modal -->
@@ -651,7 +765,45 @@
           }
           createUmbrellaElement(data[id]);
         }
+
+        // Center map on umbrellas after loading
+        centerMapOnUmbrellas();
       });
+    }
+
+    function centerMapOnUmbrellas() {
+      if (umbrellas.length === 0) return;
+
+      // Calculate bounding box of all umbrellas
+      let minX = Infinity, maxX = -Infinity;
+      let minY = Infinity, maxY = -Infinity;
+
+      umbrellas.forEach(umbrella => {
+        minX = Math.min(minX, umbrella.x);
+        maxX = Math.max(maxX, umbrella.x);
+        minY = Math.min(minY, umbrella.y);
+        maxY = Math.max(maxY, umbrella.y);
+      });
+
+      // Calculate center point
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      // Convert to pan values (offset from map center)
+      const mapCenterX = 1250; // Half of map width (2500px)
+      const mapCenterY = 1750; // Half of map height (3500px)
+      
+      panX = Math.round((mapCenterX - centerX) * currentScale);
+      panY = Math.round((mapCenterY - centerY) * currentScale);
+
+      // Clamp to slider limits
+      panX = Math.max(-1000, Math.min(1000, panX));
+      panY = Math.max(-1000, Math.min(1000, panY));
+
+      // Update sliders and transform
+      panXSlider.value = panX;
+      panYSlider.value = panY;
+      updateMapTransform();
     }
 
     function saveUmbrellaToFirebase(umbrella) {

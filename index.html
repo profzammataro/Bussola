@@ -326,8 +326,8 @@
       border: 2px solid #333;
     }
 
-    /* Zoom control panel */
-    #zoom-panel {
+    /* Control panels */
+    .control-panel {
       background: rgba(255,255,255,0.95);
       padding: 15px;
       border-radius: 10px;
@@ -338,14 +338,14 @@
       min-width: 300px;
     }
 
-    #zoom-panel label {
+    .control-panel label {
       font-weight: 600;
       color: #333;
       font-size: 14px;
       white-space: nowrap;
     }
 
-    #zoom-slider {
+    .control-slider {
       flex: 1;
       height: 8px;
       border-radius: 4px;
@@ -355,7 +355,7 @@
       cursor: pointer;
     }
 
-    #zoom-slider::-webkit-slider-thumb {
+    .control-slider::-webkit-slider-thumb {
       appearance: none;
       width: 20px;
       height: 20px;
@@ -366,12 +366,12 @@
       transition: all 0.2s ease;
     }
 
-    #zoom-slider::-webkit-slider-thumb:hover {
+    .control-slider::-webkit-slider-thumb:hover {
       transform: scale(1.1);
       background: #0056b3;
     }
 
-    #zoom-slider::-moz-range-thumb {
+    .control-slider::-moz-range-thumb {
       width: 20px;
       height: 20px;
       border-radius: 50%;
@@ -381,12 +381,37 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
 
-    #zoom-value {
+    .control-value {
       font-weight: 600;
       color: #333;
       font-size: 14px;
       min-width: 40px;
       text-align: center;
+    }
+
+    /* Pan sliders with different colors */
+    #pan-x-slider::-webkit-slider-thumb {
+      background: #28a745;
+    }
+
+    #pan-x-slider::-webkit-slider-thumb:hover {
+      background: #218838;
+    }
+
+    #pan-x-slider::-moz-range-thumb {
+      background: #28a745;
+    }
+
+    #pan-y-slider::-webkit-slider-thumb {
+      background: #dc3545;
+    }
+
+    #pan-y-slider::-webkit-slider-thumb:hover {
+      background: #c82333;
+    }
+
+    #pan-y-slider::-moz-range-thumb {
+      background: #dc3545;
     }
 
     /* Responsive adjustments */
@@ -396,7 +421,7 @@
         align-items: stretch;
       }
 
-      #zoom-panel {
+      .control-panel {
         min-width: auto;
       }
 
@@ -436,10 +461,24 @@
     </div>
 
     <!-- Zoom control panel -->
-    <div id="zoom-panel">
+    <div id="zoom-panel" class="control-panel">
       <label for="zoom-slider">Zoom:</label>
-      <input type="range" id="zoom-slider" min="0.1" max="2.5" step="0.1" value="0.4">
-      <span id="zoom-value">0.4x</span>
+      <input type="range" id="zoom-slider" class="control-slider" min="0.1" max="2.5" step="0.1" value="0.4">
+      <span id="zoom-value" class="control-value">0.4x</span>
+    </div>
+
+    <!-- Pan X control panel -->
+    <div id="pan-x-panel" class="control-panel">
+      <label for="pan-x-slider">Pan X:</label>
+      <input type="range" id="pan-x-slider" class="control-slider" min="-1000" max="1000" step="10" value="0">
+      <span id="pan-x-value" class="control-value">0</span>
+    </div>
+
+    <!-- Pan Y control panel -->
+    <div id="pan-y-panel" class="control-panel">
+      <label for="pan-y-slider">Pan Y:</label>
+      <input type="range" id="pan-y-slider" class="control-slider" min="-1000" max="1000" step="10" value="0">
+      <span id="pan-y-value" class="control-value">0</span>
     </div>
   </div>
 
@@ -504,6 +543,8 @@
     let umbrellas = [];
     let nextCabina = 1;
     let currentScale = 0.4;
+    let panX = 0;
+    let panY = 0;
     let currentUmbrella = null;
 
     // DOM elements
@@ -515,6 +556,10 @@
     const saveBtn = document.getElementById('save-btn');
     const zoomSlider = document.getElementById('zoom-slider');
     const zoomValue = document.getElementById('zoom-value');
+    const panXSlider = document.getElementById('pan-x-slider');
+    const panXValue = document.getElementById('pan-x-value');
+    const panYSlider = document.getElementById('pan-y-slider');
+    const panYValue = document.getElementById('pan-y-value');
     const lettiniButtons = document.querySelectorAll('.lettini-btn');
     const statusButtons = document.querySelectorAll('.status-btn');
 
@@ -533,7 +578,18 @@
       // Zoom slider
       zoomSlider.addEventListener('input', (e) => {
         currentScale = parseFloat(e.target.value);
-        updateZoom();
+        updateMapTransform();
+      });
+
+      // Pan sliders
+      panXSlider.addEventListener('input', (e) => {
+        panX = parseInt(e.target.value);
+        updateMapTransform();
+      });
+
+      panYSlider.addEventListener('input', (e) => {
+        panY = parseInt(e.target.value);
+        updateMapTransform();
       });
 
       // Modal controls
@@ -570,9 +626,15 @@
       }, false);
     }
 
-    function updateZoom() {
-      map.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
+    function updateMapTransform() {
+      const translateX = -50 + (panX / currentScale);
+      const translateY = -50 + (panY / currentScale);
+      map.style.transform = `translate(${translateX}%, ${translateY}%) scale(${currentScale})`;
+      
+      // Update display values
       zoomValue.textContent = currentScale.toFixed(1) + 'x';
+      panXValue.textContent = panX;
+      panYValue.textContent = panY;
     }
 
     function loadUmbrellasFromFirebase() {
@@ -794,12 +856,47 @@
       if (e.key === '+' || e.key === '=') {
         currentScale = Math.min(2.5, currentScale + 0.1);
         zoomSlider.value = currentScale;
-        updateZoom();
+        updateMapTransform();
       }
       if (e.key === '-') {
         currentScale = Math.max(0.1, currentScale - 0.1);
         zoomSlider.value = currentScale;
-        updateZoom();
+        updateMapTransform();
+      }
+      // Arrow keys for panning
+      if (e.key === 'ArrowLeft') {
+        panX = Math.max(-1000, panX - 50);
+        panXSlider.value = panX;
+        updateMapTransform();
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowRight') {
+        panX = Math.min(1000, panX + 50);
+        panXSlider.value = panX;
+        updateMapTransform();
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowUp') {
+        panY = Math.max(-1000, panY - 50);
+        panYSlider.value = panY;
+        updateMapTransform();
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowDown') {
+        panY = Math.min(1000, panY + 50);
+        panYSlider.value = panY;
+        updateMapTransform();
+        e.preventDefault();
+      }
+      // Reset view
+      if (e.key === 'Home' || e.key === 'r') {
+        currentScale = 0.4;
+        panX = 0;
+        panY = 0;
+        zoomSlider.value = currentScale;
+        panXSlider.value = panX;
+        panYSlider.value = panY;
+        updateMapTransform();
       }
     });
   </script>

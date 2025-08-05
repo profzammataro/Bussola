@@ -776,7 +776,7 @@
     }
 
     function zoom(delta) {
-      currentScale = Math.max(0.03, Math.min(2, currentScale + delta));
+      currentScale = Math.max(0.03, Math.min(3, currentScale + delta));
       map.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
     }
 

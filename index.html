@@ -32,7 +32,7 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%) scale(0.5);
+      transform: translate(-50%, -50%) scale(0.1);
       transform-origin: center center;
       transition: transform 0.3s ease;
       cursor: crosshair;
@@ -488,7 +488,7 @@
     // State management
     let umbrellas = [];
     let nextCabina = 1;
-    let currentScale = 0.5;
+    let currentScale = 0.1;
     let currentUmbrella = null;
 
     // DOM elements
@@ -516,8 +516,8 @@
       map.addEventListener('click', handleMapClick);
 
       // Zoom controls
-      zoomInBtn.addEventListener('click', () => zoom(0.2));
-      zoomOutBtn.addEventListener('click', () => zoom(-0.2));
+      zoomInBtn.addEventListener('click', () => zoom(0.3));
+      zoomOutBtn.addEventListener('click', () => zoom(-0.3));
 
       // Modal controls
       cancelBtn.addEventListener('click', closeModal);
@@ -776,7 +776,7 @@
     }
 
     function zoom(delta) {
-      currentScale = Math.max(0.2, Math.min(2, currentScale + delta));
+      currentScale = Math.max(0.03, Math.min(2, currentScale + delta));
       map.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
     }
 

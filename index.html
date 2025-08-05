@@ -585,14 +585,14 @@
   <!-- Vertical Pan Y slider -->
   <div id="pan-y-container">
     <div class="pan-y-label" id="pan-y-value">0</div>
-    <input type="range" id="pan-y-slider" min="-500" max="500" step="1" value="0" orient="vertical">
+    <input type="range" id="pan-y-slider" min="-500" max="500" step="5" value="0" orient="vertical">
     <div class="pan-y-label">Y</div>
   </div>
 
   <!-- Horizontal Pan X slider -->
   <div id="pan-x-container">
     <div class="pan-x-label">X</div>
-    <input type="range" id="pan-x-slider" min="-500" max="500" step="1" value="0">
+    <input type="range" id="pan-x-slider" min="-500" max="500" step="5" value="0">
     <div class="pan-x-label" id="pan-x-value">0</div>
   </div>
 
@@ -689,10 +689,11 @@
       // Map click for adding umbrellas
       map.addEventListener('click', handleMapClick);
 
-      // Zoom slider
+      // Zoom slider with centered zoom
       zoomSlider.addEventListener('input', (e) => {
-        currentScale = parseFloat(e.target.value);
-        updateMapTransform();
+        const newScale = parseFloat(e.target.value);
+        const deltaScale = newScale - currentScale;
+        zoomAtCurrentView(deltaScale);
       });
 
       // Pan sliders
@@ -749,6 +750,35 @@
       zoomValue.textContent = currentScale.toFixed(1) + 'x';
       panXValue.textContent = panX;
       panYValue.textContent = panY;
+    }
+
+    function zoomAtCurrentView(deltaScale) {
+      const oldScale = currentScale;
+      const newScale = Math.max(0.1, Math.min(2.5, currentScale + deltaScale));
+      
+      if (newScale === oldScale) return; // No change needed
+      
+      // Calculate scale ratio
+      const scaleRatio = newScale / oldScale;
+      
+      // Adjust pan values to maintain center point
+      panX = panX * scaleRatio;
+      panY = panY * scaleRatio;
+      
+      // Clamp to slider limits
+      panX = Math.max(-500, Math.min(500, panX));
+      panY = Math.max(-500, Math.min(500, panY));
+      
+      // Update current scale
+      currentScale = newScale;
+      
+      // Update sliders
+      zoomSlider.value = currentScale;
+      panXSlider.value = panX;
+      panYSlider.value = panY;
+      
+      // Update transform
+      updateMapTransform();
     }
 
     function loadUmbrellasFromFirebase() {
@@ -1006,14 +1036,10 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeModal();
       if (e.key === '+' || e.key === '=') {
-        currentScale = Math.min(2.5, currentScale + 0.1);
-        zoomSlider.value = currentScale;
-        updateMapTransform();
+        zoomAtCurrentView(0.1);
       }
       if (e.key === '-') {
-        currentScale = Math.max(0.1, currentScale - 0.1);
-        zoomSlider.value = currentScale;
-        updateMapTransform();
+        zoomAtCurrentView(-0.1);
       }
       // Arrow keys for panning
       if (e.key === 'ArrowLeft') {

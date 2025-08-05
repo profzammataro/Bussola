@@ -82,6 +82,12 @@
       background-color: #dc3545;
     }
 
+    .umbrella.pending {
+      background-color: #ffc107;
+      color: #212529;
+      text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+    }
+
     .umbrella-number {
       font-size: 22px;
       font-weight: 900;
@@ -221,25 +227,62 @@
       border-color: #007bff;
     }
 
-    /* Checkbox styling */
-    .checkbox-group {
+    /* Status selector */
+    .status-selector {
       display: flex;
-      align-items: center;
-      justify-content: center;
       gap: 10px;
+      justify-content: center;
       margin: 15px 0;
     }
 
-    .checkbox-group input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
+    .status-btn {
+      padding: 10px 15px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      background: white;
+      font-size: 14px;
+      font-weight: bold;
       cursor: pointer;
+      transition: all 0.2s ease;
+      color: #333;
     }
 
-    .checkbox-group label {
-      margin: 0;
-      cursor: pointer;
-      font-size: 16px;
+    .status-btn:hover {
+      transform: scale(1.05);
+    }
+
+    .status-btn.active {
+      color: white;
+      border-color: transparent;
+    }
+
+    .status-btn[data-status="closed"] {
+      background-color: #dc3545;
+      border-color: #dc3545;
+    }
+
+    .status-btn[data-status="closed"].active {
+      background-color: #dc3545;
+    }
+
+    .status-btn[data-status="pending"] {
+      background-color: #ffc107;
+      color: #212529;
+      border-color: #ffc107;
+    }
+
+    .status-btn[data-status="pending"].active {
+      background-color: #ffc107;
+      color: #212529;
+    }
+
+    .status-btn[data-status="open"] {
+      background-color: #28a745;
+      border-color: #28a745;
+    }
+
+    .status-btn[data-status="open"].active {
+      background-color: #28a745;
     }
 
     /* Buttons */
@@ -365,6 +408,10 @@
       <span>Aperto</span>
     </div>
     <div class="info-item">
+      <div class="info-color" style="background: #ffc107;"></div>
+      <span>Da aprire</span>
+    </div>
+    <div class="info-item">
       <div class="info-color" style="background: #dc3545;"></div>
       <span>Chiuso</span>
     </div>
@@ -402,9 +449,13 @@
         </div>
       </div>
 
-      <div class="checkbox-group">
-        <input type="checkbox" id="open-checkbox">
-        <label for="open-checkbox">Ombrellone aperto</label>
+      <div class="form-group">
+        <label>Stato Ombrellone:</label>
+        <div class="status-selector">
+          <button type="button" class="status-btn" data-status="closed">Chiuso</button>
+          <button type="button" class="status-btn active" data-status="pending">Da aprire</button>
+          <button type="button" class="status-btn" data-status="open">Aperto</button>
+        </div>
       </div>
 
       <div class="modal-buttons">
@@ -445,12 +496,12 @@
     const modalBackdrop = document.getElementById('modal-backdrop');
     const editModal = document.getElementById('edit-modal');
     const cabinaInput = document.getElementById('cabina-input');
-    const openCheckbox = document.getElementById('open-checkbox');
     const cancelBtn = document.getElementById('cancel-btn');
     const saveBtn = document.getElementById('save-btn');
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
     const lettiniButtons = document.querySelectorAll('.lettini-btn');
+    const statusButtons = document.querySelectorAll('.status-btn');
 
     // Initialize
     init();
@@ -483,6 +534,14 @@
         });
       });
 
+      // Status selector
+      statusButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          statusButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+
       // Prevent zoom on double tap
       let lastTouchEnd = 0;
       document.addEventListener('touchend', (e) => {
@@ -502,11 +561,18 @@
         nextCabina = 1;
 
         for (const id in data) {
-          umbrellas.push(data[id]);
-          if (data[id].cabina && data[id].cabina >= nextCabina) {
-            nextCabina = data[id].cabina + 1;
+          // Migrate old data structure if needed
+          const umbrellaData = data[id];
+          if (umbrellaData.open !== undefined && umbrellaData.status === undefined) {
+            umbrellaData.status = umbrellaData.open ? 'open' : 'closed';
+            delete umbrellaData.open;
           }
-          createUmbrellaElement(data[id]);
+          
+          umbrellas.push(umbrellaData);
+          if (umbrellaData.cabina && umbrellaData.cabina >= nextCabina) {
+            nextCabina = umbrellaData.cabina + 1;
+          }
+          createUmbrellaElement(umbrellaData);
         }
       });
     }
@@ -537,7 +603,7 @@
         y: snappedY,
         cabina: nextCabina++,
         lettini: 2,
-        open: false,
+        status: 'pending', // Default to "da aprire"
         mtime: Date.now()
       };
 
@@ -559,7 +625,8 @@
     }
 
     function updateUmbrellaDisplay(el, umbrella) {
-      el.className = `umbrella ${umbrella.open ? 'open' : 'closed'}`;
+      const status = umbrella.status || (umbrella.open ? 'open' : 'closed');
+      el.className = `umbrella ${status}`;
       
       el.innerHTML = `
         <div class="delete-btn" title="Elimina">×</div>
@@ -657,11 +724,16 @@
       currentUmbrella = umbrella;
       
       cabinaInput.value = umbrella.cabina;
-      openCheckbox.checked = umbrella.open;
       
       // Set lettini selector
       lettiniButtons.forEach(btn => {
         btn.classList.toggle('active', btn.dataset.value == umbrella.lettini);
+      });
+
+      // Set status selector
+      const status = umbrella.status || (umbrella.open ? 'open' : 'closed');
+      statusButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.status === status);
       });
 
       modalBackdrop.style.display = 'block';
@@ -671,11 +743,17 @@
       if (!currentUmbrella) return;
 
       const selectedLettini = document.querySelector('.lettini-btn.active').dataset.value;
+      const selectedStatus = document.querySelector('.status-btn.active').dataset.status;
       
       currentUmbrella.cabina = parseInt(cabinaInput.value);
       currentUmbrella.lettini = parseInt(selectedLettini);
-      currentUmbrella.open = openCheckbox.checked;
+      currentUmbrella.status = selectedStatus;
       currentUmbrella.mtime = Date.now();
+
+      // Remove old 'open' property if exists
+      if (currentUmbrella.open !== undefined) {
+        delete currentUmbrella.open;
+      }
 
       const el = document.querySelector(`[data-id="${currentUmbrella.id}"]`);
       if (el) {

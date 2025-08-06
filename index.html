@@ -433,7 +433,7 @@
     </div>
     <div style="margin-top: 10px; font-size: 12px; color: #666;">
       Trascina per spostare mappa<br>
-      Tap per aggiungere ombrellone<br>
+      Doppio tap per aggiungere<br>
       Click per modificare<br>
       Tieni premuto per spostare
     </div>
@@ -522,6 +522,12 @@
     let longPressTimer = null;
     let longPressActive = false;
     let currentDragUmbrella = null;
+    
+    // Double tap state
+    let lastTapTime = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+    let tapTimeout = null;
 
     // DOM elements
     const map = document.getElementById('map');
@@ -643,8 +649,8 @@
       } else if (isPanning) {
         endMapPan();
       } else if (target === map && !longPressActive) {
-        // Quick tap on empty space - add umbrella
-        addUmbrellaAtPosition(e);
+        // Check for double tap on empty space
+        handleMapTap(e);
       } else if (target.closest('.umbrella') && !longPressActive) {
         const umbrellaEl = target.closest('.umbrella');
         if (target.classList.contains('delete-btn')) {
@@ -658,6 +664,43 @@
       if (currentDragUmbrella) {
         currentDragUmbrella.classList.remove('long-press-active');
         currentDragUmbrella = null;
+      }
+    }
+
+    function handleMapTap(e) {
+      const currentTime = Date.now();
+      const tapX = e.clientX;
+      const tapY = e.clientY;
+      
+      // Check if this is a double tap
+      const timeDiff = currentTime - lastTapTime;
+      const distanceX = Math.abs(tapX - lastTapX);
+      const distanceY = Math.abs(tapY - lastTapY);
+      const maxDistance = 50; // Max distance between taps
+      const maxTimeDiff = 500; // Max time between taps (ms)
+      
+      if (timeDiff < maxTimeDiff && distanceX < maxDistance && distanceY < maxDistance) {
+        // Double tap detected - create umbrella
+        clearTimeout(tapTimeout);
+        addUmbrellaAtPosition(e);
+        
+        // Reset double tap state
+        lastTapTime = 0;
+        lastTapX = 0;
+        lastTapY = 0;
+      } else {
+        // Single tap - wait to see if there's a second tap
+        lastTapTime = currentTime;
+        lastTapX = tapX;
+        lastTapY = tapY;
+        
+        // Set timeout to reset if no second tap comes
+        clearTimeout(tapTimeout);
+        tapTimeout = setTimeout(() => {
+          lastTapTime = 0;
+          lastTapX = 0;
+          lastTapY = 0;
+        }, maxTimeDiff);
       }
     }
 
@@ -760,7 +803,7 @@
         y: snappedY,
         cabina: nextCabina++,
         lettini: 2,
-        status: 'pending',
+        status: 'closed', // Default to red/closed as requested
         mtime: Date.now()
       };
 

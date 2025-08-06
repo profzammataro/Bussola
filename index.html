@@ -27,16 +27,21 @@
     }
 
     #map {
-      width: 3000px;
-      height: 1500px;
+      width: 2000px;
+      height: 2000px;
       position: absolute;
-      top: 40%;
+      top: 50%;
       left: 50%;
       transform: translate(-50%, -50%) scale(0.1);
       transform-origin: center center;
       transition: transform 0.3s ease;
-      cursor: crosshair;
+      cursor: grab;
       background: transparent;
+    }
+
+    #map.dragging {
+      cursor: grabbing;
+      transition: none;
     }
 
     .umbrella {
@@ -52,16 +57,22 @@
       color: white;
       text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
       box-sizing: border-box;
-      cursor: grab;
+      cursor: pointer;
       border: 3px solid #333;
       border-radius: 15px;
       background-color: #dc3545;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       user-select: none;
       touch-action: none;
+      pointer-events: all;
     }
 
-    .umbrella.dragging {
+    .umbrella.long-press-active {
+      animation: longPressAnimation 0.8s ease-in-out;
+      cursor: grab;
+    }
+
+    .umbrella.umbrella-dragging {
       cursor: grabbing;
       transform: scale(1.1) rotate(2deg);
       box-shadow: 0 8px 25px rgba(0,0,0,0.4);
@@ -122,6 +133,11 @@
     .delete-btn:hover {
       transform: scale(1.2);
       background: #ff3742;
+    }
+
+    @keyframes longPressAnimation {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
     }
 
     /* Modal */
@@ -416,9 +432,10 @@
       <span>Chiuso</span>
     </div>
     <div style="margin-top: 10px; font-size: 12px; color: #666;">
-      Tocca per aggiungere<br>
+      Trascina per spostare mappa<br>
+      Tap per aggiungere ombrellone<br>
       Click per modificare<br>
-      Trascina per spostare
+      Tieni premuto per spostare
     </div>
   </div>
 
@@ -490,9 +507,25 @@
     let nextCabina = 1;
     let currentScale = 0.1;
     let currentUmbrella = null;
+    
+    // Pan state
+    let mapX = 0;
+    let mapY = 0;
+    let isPanning = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    let panMapStartX = 0;
+    let panMapStartY = 0;
+    
+    // Umbrella drag state
+    let isDraggingUmbrella = false;
+    let longPressTimer = null;
+    let longPressActive = false;
+    let currentDragUmbrella = null;
 
     // DOM elements
     const map = document.getElementById('map');
+    const mapContainer = document.getElementById('map-container');
     const modalBackdrop = document.getElementById('modal-backdrop');
     const editModal = document.getElementById('edit-modal');
     const cabinaInput = document.getElementById('cabina-input');
@@ -512,12 +545,15 @@
     }
 
     function setupEventListeners() {
-      // Map click for adding umbrellas
-      map.addEventListener('click', handleMapClick);
+      // Map container events for panning and adding umbrellas
+      mapContainer.addEventListener('pointerdown', handleMapPointerDown);
+      mapContainer.addEventListener('pointermove', handleMapPointerMove);
+      mapContainer.addEventListener('pointerup', handleMapPointerUp);
+      mapContainer.addEventListener('pointercancel', handleMapPointerUp);
 
       // Zoom controls
-      zoomInBtn.addEventListener('click', () => zoom(0.2));
-      zoomOutBtn.addEventListener('click', () => zoom(-0.2));
+      zoomInBtn.addEventListener('click', () => zoom(0.3));
+      zoomOutBtn.addEventListener('click', () => zoom(-0.3));
 
       // Modal controls
       cancelBtn.addEventListener('click', closeModal);
@@ -553,6 +589,188 @@
       }, false);
     }
 
+    function handleMapPointerDown(e) {
+      const target = e.target;
+      
+      // Check if we clicked on an umbrella
+      if (target.closest('.umbrella') && !target.classList.contains('delete-btn')) {
+        const umbrellaEl = target.closest('.umbrella');
+        
+        // Start long press timer
+        longPressTimer = setTimeout(() => {
+          longPressActive = true;
+          umbrellaEl.classList.add('long-press-active');
+          startUmbrellaDrag(e, umbrellaEl);
+        }, 800); // 800ms long press
+        
+        // Prevent map panning when touching umbrella
+        return;
+      }
+      
+      // Start map panning
+      startMapPan(e);
+    }
+
+    function handleMapPointerMove(e) {
+      if (isDraggingUmbrella) {
+        moveUmbrella(e);
+      } else if (isPanning) {
+        moveMap(e);
+      } else if (longPressTimer) {
+        // Cancel long press if moved too much
+        const moveDistance = Math.sqrt(
+          Math.pow(e.clientX - panStartX, 2) + Math.pow(e.clientY - panStartY, 2)
+        );
+        if (moveDistance > 10) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+          startMapPan(e);
+        }
+      }
+    }
+
+    function handleMapPointerUp(e) {
+      const target = e.target;
+      
+      // Clear long press timer
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+
+      if (isDraggingUmbrella) {
+        endUmbrellaDrag(e);
+      } else if (isPanning) {
+        endMapPan();
+      } else if (target === map && !longPressActive) {
+        // Quick tap on empty space - add umbrella
+        addUmbrellaAtPosition(e);
+      } else if (target.closest('.umbrella') && !longPressActive) {
+        const umbrellaEl = target.closest('.umbrella');
+        if (target.classList.contains('delete-btn')) {
+          deleteUmbrella(umbrellaEl.dataset.id);
+        } else {
+          editUmbrella(umbrellaEl.dataset.id);
+        }
+      }
+
+      longPressActive = false;
+      if (currentDragUmbrella) {
+        currentDragUmbrella.classList.remove('long-press-active');
+        currentDragUmbrella = null;
+      }
+    }
+
+    function startMapPan(e) {
+      isPanning = true;
+      panStartX = e.clientX;
+      panStartY = e.clientY;
+      panMapStartX = mapX;
+      panMapStartY = mapY;
+      map.classList.add('dragging');
+      mapContainer.setPointerCapture(e.pointerId);
+    }
+
+    function moveMap(e) {
+      if (!isPanning) return;
+      
+      const deltaX = e.clientX - panStartX;
+      const deltaY = e.clientY - panStartY;
+      
+      mapX = panMapStartX + deltaX;
+      mapY = panMapStartY + deltaY;
+      
+      updateMapTransform();
+    }
+
+    function endMapPan() {
+      isPanning = false;
+      map.classList.remove('dragging');
+    }
+
+    function startUmbrellaDrag(e, umbrellaEl) {
+      isDraggingUmbrella = true;
+      currentDragUmbrella = umbrellaEl;
+      umbrellaEl.classList.add('umbrella-dragging');
+      mapContainer.setPointerCapture(e.pointerId);
+      
+      const rect = umbrellaEl.getBoundingClientRect();
+      const mapRect = map.getBoundingClientRect();
+      
+      panStartX = e.clientX;
+      panStartY = e.clientY;
+    }
+
+    function moveUmbrella(e) {
+      if (!isDraggingUmbrella || !currentDragUmbrella) return;
+      
+      const deltaX = (e.clientX - panStartX) / currentScale;
+      const deltaY = (e.clientY - panStartY) / currentScale;
+      
+      const currentX = parseInt(currentDragUmbrella.style.left);
+      const currentY = parseInt(currentDragUmbrella.style.top);
+      
+      currentDragUmbrella.style.left = (currentX + deltaX) + 'px';
+      currentDragUmbrella.style.top = (currentY + deltaY) + 'px';
+      
+      panStartX = e.clientX;
+      panStartY = e.clientY;
+    }
+
+    function endUmbrellaDrag(e) {
+      if (!isDraggingUmbrella || !currentDragUmbrella) return;
+      
+      isDraggingUmbrella = false;
+      currentDragUmbrella.classList.remove('umbrella-dragging');
+      
+      // Snap to grid
+      const gridSize = 120;
+      const currentX = parseInt(currentDragUmbrella.style.left);
+      const currentY = parseInt(currentDragUmbrella.style.top);
+      
+      const snappedX = Math.round(currentX / gridSize) * gridSize;
+      const snappedY = Math.round(currentY / gridSize) * gridSize;
+      
+      currentDragUmbrella.style.left = snappedX + 'px';
+      currentDragUmbrella.style.top = snappedY + 'px';
+      
+      // Update umbrella data and save to Firebase
+      const umbrella = umbrellas.find(u => u.id == currentDragUmbrella.dataset.id);
+      if (umbrella) {
+        umbrella.x = snappedX;
+        umbrella.y = snappedY;
+        umbrella.mtime = Date.now();
+        saveUmbrellaToFirebase(umbrella);
+      }
+    }
+
+    function addUmbrellaAtPosition(e) {
+      const rect = map.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / currentScale;
+      const y = (e.clientY - rect.top) / currentScale;
+
+      // Snap to grid
+      const gridSize = 120;
+      const snappedX = Math.round(x / gridSize) * gridSize;
+      const snappedY = Math.round(y / gridSize) * gridSize;
+
+      const umbrella = {
+        id: `umb_${Date.now()}`,
+        x: snappedX,
+        y: snappedY,
+        cabina: nextCabina++,
+        lettini: 2,
+        status: 'pending',
+        mtime: Date.now()
+      };
+
+      saveUmbrellaToFirebase(umbrella);
+    }
+
+    function updateMapTransform() {
+      map.style.transform = `translate(calc(-50% + ${mapX}px), calc(-50% + ${mapY}px)) scale(${currentScale})`;
+    }
+
     function loadUmbrellasFromFirebase() {
       onValue(ref(db, 'umbrellas'), (snapshot) => {
         const data = snapshot.val() || {};
@@ -561,7 +779,6 @@
         nextCabina = 1;
 
         for (const id in data) {
-          // Migrate old data structure if needed
           const umbrellaData = data[id];
           if (umbrellaData.open !== undefined && umbrellaData.status === undefined) {
             umbrellaData.status = umbrellaData.open ? 'open' : 'closed';
@@ -585,31 +802,6 @@
       remove(ref(db, `umbrellas/${id}`));
     }
 
-    function handleMapClick(e) {
-      if (e.target !== map) return;
-
-      const rect = map.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / currentScale;
-      const y = (e.clientY - rect.top) / currentScale;
-
-      // Snap to grid
-      const gridSize = 120;
-      const snappedX = Math.round(x / gridSize) * gridSize;
-      const snappedY = Math.round(y / gridSize) * gridSize;
-
-      const umbrella = {
-        id: `umb_${Date.now()}`,
-        x: snappedX,
-        y: snappedY,
-        cabina: nextCabina++,
-        lettini: 2,
-        status: 'pending', // Default to "da aprire"
-        mtime: Date.now()
-      };
-
-      saveUmbrellaToFirebase(umbrella);
-    }
-
     function createUmbrellaElement(umbrella) {
       const el = document.createElement('div');
       el.className = 'umbrella';
@@ -618,7 +810,6 @@
       el.style.top = umbrella.y + 'px';
       
       updateUmbrellaDisplay(el, umbrella);
-      addUmbrellaListeners(el);
       
       map.appendChild(el);
       return el;
@@ -635,88 +826,6 @@
       `;
     }
 
-    function addUmbrellaListeners(el) {
-      let isDragging = false;
-      let startX, startY;
-      let offsetX, offsetY;
-
-      // Pointer events for drag and drop
-      el.addEventListener('pointerdown', (e) => {
-        if (e.target.classList.contains('delete-btn')) return;
-        
-        isDragging = true;
-        el.classList.add('dragging');
-        el.setPointerCapture(e.pointerId);
-        
-        const rect = el.getBoundingClientRect();
-        const mapRect = map.getBoundingClientRect();
-        
-        offsetX = e.clientX - rect.left;
-        offsetY = e.clientY - rect.top;
-        startX = e.clientX;
-        startY = e.clientY;
-        
-        e.preventDefault();
-      });
-
-      el.addEventListener('pointermove', (e) => {
-        if (!isDragging) return;
-        
-        const mapRect = map.getBoundingClientRect();
-        const x = (e.clientX - mapRect.left - offsetX) / currentScale;
-        const y = (e.clientY - mapRect.top - offsetY) / currentScale;
-        
-        el.style.left = x + 'px';
-        el.style.top = y + 'px';
-        
-        e.preventDefault();
-      });
-
-      el.addEventListener('pointerup', (e) => {
-        if (!isDragging) return;
-        
-        isDragging = false;
-        el.classList.remove('dragging');
-        el.releasePointerCapture(e.pointerId);
-        
-        // Check if it was a click (minimal movement) or a drag
-        const moveDistance = Math.sqrt(
-          Math.pow(e.clientX - startX, 2) + Math.pow(e.clientY - startY, 2)
-        );
-        
-        if (moveDistance < 5) {
-          // It was a click, open edit modal
-          editUmbrella(el.dataset.id);
-        } else {
-          // It was a drag, snap to grid and save position
-          const gridSize = 120;
-          const currentX = parseInt(el.style.left);
-          const currentY = parseInt(el.style.top);
-          
-          const snappedX = Math.round(currentX / gridSize) * gridSize;
-          const snappedY = Math.round(currentY / gridSize) * gridSize;
-          
-          el.style.left = snappedX + 'px';
-          el.style.top = snappedY + 'px';
-          
-          // Update umbrella data and save to Firebase
-          const umbrella = umbrellas.find(u => u.id == el.dataset.id);
-          if (umbrella) {
-            umbrella.x = snappedX;
-            umbrella.y = snappedY;
-            umbrella.mtime = Date.now();
-            saveUmbrellaToFirebase(umbrella);
-          }
-        }
-      });
-
-      // Handle delete button
-      el.querySelector('.delete-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        deleteUmbrella(el.dataset.id);
-      });
-    }
-
     function editUmbrella(id) {
       const umbrella = umbrellas.find(u => u.id == id);
       if (!umbrella) return;
@@ -725,12 +834,10 @@
       
       cabinaInput.value = umbrella.cabina;
       
-      // Set lettini selector
       lettiniButtons.forEach(btn => {
         btn.classList.toggle('active', btn.dataset.value == umbrella.lettini);
       });
 
-      // Set status selector
       const status = umbrella.status || (umbrella.open ? 'open' : 'closed');
       statusButtons.forEach(btn => {
         btn.classList.toggle('active', btn.dataset.status === status);
@@ -750,7 +857,6 @@
       currentUmbrella.status = selectedStatus;
       currentUmbrella.mtime = Date.now();
 
-      // Remove old 'open' property if exists
       if (currentUmbrella.open !== undefined) {
         delete currentUmbrella.open;
       }
@@ -766,7 +872,6 @@
 
     function deleteUmbrella(id) {
       if (!confirm('Vuoi eliminare questo ombrellone?')) return;
-
       deleteUmbrellaFromFirebase(id);
     }
 
@@ -776,8 +881,8 @@
     }
 
     function zoom(delta) {
-      currentScale = Math.max(0.03, Math.min(3, currentScale + delta));
-      map.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
+      currentScale = Math.max(0.03, Math.min(2, currentScale + delta));
+      updateMapTransform();
     }
 
     // Keyboard shortcuts

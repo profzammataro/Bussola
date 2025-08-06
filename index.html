@@ -27,7 +27,7 @@
     }
 
     #map {
-      width: 2000px;
+      width: 3000px;
       height: 2000px;
       position: absolute;
       top: 50%;
@@ -434,8 +434,8 @@
     <div style="margin-top: 10px; font-size: 12px; color: #666;">
       Trascina per spostare mappa<br>
       Doppio tap per aggiungere ombrellone<br>
-      Click per modificare<br>
-      Tieni premuto per spostare
+      Click singolo per modificare ombrellone<br>
+      Tieni premuto per spostare ombrellone 
     </div>
   </div>
 
@@ -558,8 +558,8 @@
       mapContainer.addEventListener('pointercancel', handleMapPointerUp);
 
       // Zoom controls
-      zoomInBtn.addEventListener('click', () => zoom(0.3));
-      zoomOutBtn.addEventListener('click', () => zoom(-0.3));
+      zoomInBtn.addEventListener('click', () => zoom(0.2));
+      zoomOutBtn.addEventListener('click', () => zoom(-0.2));
 
       // Modal controls
       cancelBtn.addEventListener('click', closeModal);
@@ -746,11 +746,17 @@
       umbrellaEl.classList.add('umbrella-dragging');
       mapContainer.setPointerCapture(e.pointerId);
       
-      const rect = umbrellaEl.getBoundingClientRect();
-      const mapRect = map.getBoundingClientRect();
-      
+      // Store current drag position
       panStartX = e.clientX;
       panStartY = e.clientY;
+      
+      // Store current umbrella position
+      const currentX = parseInt(umbrellaEl.style.left) || 0;
+      const currentY = parseInt(umbrellaEl.style.top) || 0;
+      
+      // Store initial umbrella position for dragging
+      umbrellaEl.dragStartX = currentX;
+      umbrellaEl.dragStartY = currentY;
     }
 
     function moveUmbrella(e) {
@@ -759,14 +765,11 @@
       const deltaX = (e.clientX - panStartX) / currentScale;
       const deltaY = (e.clientY - panStartY) / currentScale;
       
-      const currentX = parseInt(currentDragUmbrella.style.left);
-      const currentY = parseInt(currentDragUmbrella.style.top);
+      const newX = currentDragUmbrella.dragStartX + deltaX;
+      const newY = currentDragUmbrella.dragStartY + deltaY;
       
-      currentDragUmbrella.style.left = (currentX + deltaX) + 'px';
-      currentDragUmbrella.style.top = (currentY + deltaY) + 'px';
-      
-      panStartX = e.clientX;
-      panStartY = e.clientY;
+      currentDragUmbrella.style.left = newX + 'px';
+      currentDragUmbrella.style.top = newY + 'px';
     }
 
     function endUmbrellaDrag(e) {
@@ -777,14 +780,18 @@
       
       // Snap to grid
       const gridSize = 120;
-      const currentX = parseInt(currentDragUmbrella.style.left);
-      const currentY = parseInt(currentDragUmbrella.style.top);
+      const currentX = parseInt(currentDragUmbrella.style.left) || 0;
+      const currentY = parseInt(currentDragUmbrella.style.top) || 0;
       
       const snappedX = Math.round(currentX / gridSize) * gridSize;
       const snappedY = Math.round(currentY / gridSize) * gridSize;
       
       currentDragUmbrella.style.left = snappedX + 'px';
       currentDragUmbrella.style.top = snappedY + 'px';
+      
+      // Clean up drag properties
+      delete currentDragUmbrella.dragStartX;
+      delete currentDragUmbrella.dragStartY;
       
       // Update umbrella data and save to Firebase
       const umbrella = umbrellas.find(u => u.id == currentDragUmbrella.dataset.id);
@@ -933,7 +940,7 @@
     }
 
     function zoom(delta) {
-      currentScale = Math.max(0.03, Math.min(2, currentScale + delta));
+      currentScale = Math.max(0.03, Math.min(3, currentScale + delta));
       updateMapTransform();
     }
 

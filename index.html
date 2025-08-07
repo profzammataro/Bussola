@@ -27,7 +27,7 @@
     }
 
     #map {
-      width: 2000px;
+      width: 3000px;
       height: 2000px;
       position: absolute;
       top: 50%;
@@ -194,7 +194,7 @@
       color: #333;
     }
 
-    .form-group input[type="number"] {
+    .form-group input[type="text"] {
       width: 100%;
       padding: 12px;
       font-size: 16px;
@@ -202,9 +202,10 @@
       border-radius: 8px;
       box-sizing: border-box;
       transition: border-color 0.2s ease;
+      text-transform: uppercase;
     }
 
-    .form-group input[type="number"]:focus {
+    .form-group input[type="text"]:focus {
       outline: none;
       border-color: #007bff;
     }
@@ -433,9 +434,9 @@
     </div>
     <div style="margin-top: 10px; font-size: 12px; color: #666;">
       Trascina per spostare mappa<br>
-      Doppio tap per aggiungere<br>
-      Click per modificare<br>
-      Tieni premuto per spostare
+      Doppio tap per aggiungere ombrellone<br>
+      Click singolo per modificare ombrellone<br>
+      Tieni premuto per spostare ombrellone 
     </div>
   </div>
 
@@ -451,8 +452,8 @@
       <h3>Modifica Ombrellone</h3>
       
       <div class="form-group">
-        <label for="cabina-input">Numero Cabina:</label>
-        <input type="number" id="cabina-input" min="1">
+        <label for="cabina-input">Numero/Codice Cabina:</label>
+        <input type="text" id="cabina-input" maxlength="10" placeholder="es. A1, B12, 001">
       </div>
 
       <div class="form-group">
@@ -558,8 +559,8 @@
       mapContainer.addEventListener('pointercancel', handleMapPointerUp);
 
       // Zoom controls
-      zoomInBtn.addEventListener('click', () => zoom(0.3));
-      zoomOutBtn.addEventListener('click', () => zoom(-0.3));
+      zoomInBtn.addEventListener('click', () => zoom(0.2));
+      zoomOutBtn.addEventListener('click', () => zoom(-0.2));
 
       // Modal controls
       cancelBtn.addEventListener('click', closeModal);
@@ -582,6 +583,11 @@
           statusButtons.forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
         });
+      });
+
+      // Auto-uppercase for cabina input
+      cabinaInput.addEventListener('input', (e) => {
+        e.target.value = e.target.value.toUpperCase();
       });
 
       // Prevent zoom on double tap
@@ -609,7 +615,9 @@
           startUmbrellaDrag(e, umbrellaEl);
         }, 800); // 800ms long press
         
-        // Prevent map panning when touching umbrella
+        // Store positions for potential pan/movement detection
+        panStartX = e.clientX;
+        panStartY = e.clientY;
         return;
       }
       
@@ -633,7 +641,13 @@
         if (moveDistance > 10) {
           clearTimeout(longPressTimer);
           longPressTimer = null;
-          startMapPan(e);
+          // Don't automatically start pan here - let it start naturally
+          const moveCheck = Math.sqrt(
+            Math.pow(e.clientX - panStartX, 2) + Math.pow(e.clientY - panStartY, 2)
+          );
+          if (moveCheck > 5) {
+            startMapPan(e);
+          }
         }
       } else {
         // Check if we should start panning (moved enough distance)
@@ -721,6 +735,12 @@
       isPanning = true;
       map.classList.add('dragging');
       mapContainer.setPointerCapture(e.pointerId);
+      
+      // Update the starting positions for the current pan operation
+      panStartX = e.clientX;
+      panStartY = e.clientY;
+      panMapStartX = mapX;
+      panMapStartY = mapY;
     }
 
     function moveMap(e) {
@@ -817,13 +837,23 @@
         id: `umb_${Date.now()}`,
         x: snappedX,
         y: snappedY,
-        cabina: nextCabina++,
+        cabina: generateNextCabinaCode(),
         lettini: 2,
         status: 'closed', // Default to red/closed as requested
         mtime: Date.now()
       };
 
       saveUmbrellaToFirebase(umbrella);
+    }
+
+    function generateNextCabinaCode() {
+      // Generate alphanumeric code (A1, A2, ..., B1, B2, etc.)
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const letterIndex = Math.floor((nextCabina - 1) / 50); // 50 numbers per letter
+      const numberPart = ((nextCabina - 1) % 50) + 1;
+      const letter = letters[letterIndex % letters.length];
+      
+      return `${letter}${numberPart}`;
     }
 
     function updateMapTransform() {
@@ -845,9 +875,14 @@
           }
           
           umbrellas.push(umbrellaData);
-          if (umbrellaData.cabina && umbrellaData.cabina >= nextCabina) {
-            nextCabina = umbrellaData.cabina + 1;
+          
+          // Update nextCabina counter (handle both numeric and alphanumeric)
+          if (umbrellaData.cabina) {
+            if (typeof umbrellaData.cabina === 'number' && umbrellaData.cabina >= nextCabina) {
+              nextCabina = umbrellaData.cabina + 1;
+            }
           }
+          
           createUmbrellaElement(umbrellaData);
         }
       });
@@ -908,10 +943,18 @@
     function saveUmbrella() {
       if (!currentUmbrella) return;
 
+      // Validate cabina input
+      const cabinaValue = cabinaInput.value.trim().toUpperCase();
+      if (!cabinaValue) {
+        alert('Il campo Numero/Codice Cabina è obbligatorio');
+        cabinaInput.focus();
+        return;
+      }
+
       const selectedLettini = document.querySelector('.lettini-btn.active').dataset.value;
       const selectedStatus = document.querySelector('.status-btn.active').dataset.status;
       
-      currentUmbrella.cabina = parseInt(cabinaInput.value);
+      currentUmbrella.cabina = cabinaValue;
       currentUmbrella.lettini = parseInt(selectedLettini);
       currentUmbrella.status = selectedStatus;
       currentUmbrella.mtime = Date.now();
@@ -940,7 +983,7 @@
     }
 
     function zoom(delta) {
-      currentScale = Math.max(0.03, Math.min(2, currentScale + delta));
+      currentScale = Math.max(0.03, Math.min(3, currentScale + delta));
       updateMapTransform();
     }
 

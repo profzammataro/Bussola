@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- Zoom controls --><!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8">
@@ -141,9 +141,169 @@
       background: #ff3742;
     }
 
-    @keyframes longPressAnimation {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.1); }
+    .umbrella.highlighted {
+      background-color: #e91e63 !important; /* Fuchsia color */
+      border-color: #ad1457 !important;
+      animation: highlightPulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes highlightPulse {
+      0%, 100% { 
+        box-shadow: 0 4px 15px rgba(233, 30, 99, 0.4);
+        transform: scale(1);
+      }
+      50% { 
+        box-shadow: 0 8px 25px rgba(233, 30, 99, 0.6);
+        transform: scale(1.05);
+      }
+    }
+
+    // Search functionality
+    function handleSearchInput(e) {
+      const searchTerm = e.target.value.trim().toUpperCase();
+      
+      // Clear previous search timeout
+      clearTimeout(searchTimeout);
+      
+      if (searchTerm === '') {
+        clearSearch();
+        return;
+      }
+      
+      // Show clear button
+      clearSearchBtn.style.display = 'block';
+      
+      // Debounce search
+      searchTimeout = setTimeout(() => {
+        performSearch(searchTerm);
+      }, 300);
+    }
+
+    function handleSearchFocus() {
+      if (searchInput.value.trim() !== '') {
+        showSearchResults();
+      }
+    }
+
+    function handleSearchBlur() {
+      // Delay hiding results to allow clicking on them
+      setTimeout(() => {
+        hideSearchResults();
+      }, 200);
+    }
+
+    function performSearch(searchTerm) {
+      // Clear previous highlights
+      clearHighlights();
+      
+      // Find matching umbrellas
+      const matches = umbrellas.filter(umbrella => 
+        umbrella.cabina && umbrella.cabina.toString().toUpperCase().includes(searchTerm)
+      );
+      
+      if (matches.length > 0) {
+        // Highlight matching umbrellas
+        highlightUmbrellas(matches);
+        showSearchResultsList(matches);
+      } else {
+        hideSearchResults();
+      }
+    }
+
+    function highlightUmbrellas(umbrellasList) {
+      highlightedUmbrellas = umbrellasList;
+      
+      umbrellasList.forEach(umbrella => {
+        const element = document.querySelector(`[data-id="${umbrella.id}"]`);
+        if (element) {
+          element.classList.add('highlighted');
+        }
+      });
+    }
+
+    function clearHighlights() {
+      highlightedUmbrellas.forEach(umbrella => {
+        const element = document.querySelector(`[data-id="${umbrella.id}"]`);
+        if (element) {
+          element.classList.remove('highlighted');
+        }
+      });
+      highlightedUmbrellas = [];
+    }
+
+    function showSearchResultsList(matches) {
+      searchResults.innerHTML = '';
+      
+      matches.forEach(umbrella => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        item.innerHTML = `
+          <strong>${umbrella.cabina}</strong> - 
+          L:${umbrella.lettini || 0} S:${umbrella.sdraio || 0} C:${umbrella.sedia || 0} - 
+          <span style="color: ${getStatusColor(umbrella.status)}">${getStatusText(umbrella.status)}</span>
+        `;
+        
+        item.addEventListener('click', () => {
+          focusOnUmbrella(umbrella);
+          hideSearchResults();
+        });
+        
+        searchResults.appendChild(item);
+      });
+      
+      showSearchResults();
+    }
+
+    function focusOnUmbrella(umbrella) {
+      // Center the map on the umbrella
+      const targetX = -umbrella.x * currentScale;
+      const targetY = -umbrella.y * currentScale;
+      
+      mapX = targetX;
+      mapY = targetY;
+      updateMapTransform();
+      
+      // Briefly highlight the umbrella
+      const element = document.querySelector(`[data-id="${umbrella.id}"]`);
+      if (element) {
+        element.style.animation = 'none';
+        setTimeout(() => {
+          element.style.animation = 'highlightPulse 0.8s ease-in-out 3';
+        }, 10);
+      }
+    }
+
+    function showSearchResults() {
+      searchResults.style.display = 'block';
+    }
+
+    function hideSearchResults() {
+      searchResults.style.display = 'none';
+    }
+
+    function clearSearch() {
+      searchInput.value = '';
+      clearSearchBtn.style.display = 'none';
+      clearHighlights();
+      hideSearchResults();
+    }
+
+    function getStatusColor(status) {
+      switch(status) {
+        case 'open': return '#28a745';
+        case 'pending': return '#ffc107';
+        case 'closed': return '#dc3545';
+        default: return '#dc3545';
+      }
+    }
+
+    function getStatusText(status) {
+      switch(status) {
+        case 'open': return 'Aperto';
+        case 'pending': return 'Da aprire';
+        case 'closed': return 'Chiuso';
+        default: return 'Chiuso';
+      }
     }
 
     /* Modal */
@@ -446,7 +606,13 @@
     </div>
   </div>
 
-  <!-- Zoom controls -->
+  <!-- Search container -->
+  <div id="search-container">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="search-input" placeholder="Cerca cabina (es. A1, B12)" maxlength="10">
+    <button class="clear-search" id="clear-search" style="display: none;">✕</button>
+    <div id="search-results"></div>
+  </div>
   <div id="zoom-controls">
     <button class="zoom-btn" id="zoom-in">+</button>
     <button class="zoom-btn" id="zoom-out">−</button>
@@ -554,6 +720,10 @@
     let lastTapX = 0;
     let lastTapY = 0;
     let tapTimeout = null;
+    
+    // Search state
+    let highlightedUmbrellas = [];
+    let searchTimeout = null;
 
     // DOM elements
     const map = document.getElementById('map');
@@ -569,6 +739,11 @@
     const sdraioButtons = document.querySelectorAll('.sdraio-btn');
     const sediaButtons = document.querySelectorAll('.sedia-btn');
     const statusButtons = document.querySelectorAll('.status-btn');
+    
+    // Search elements
+    const searchInput = document.getElementById('search-input');
+    const clearSearchBtn = document.getElementById('clear-search');
+    const searchResults = document.getElementById('search-results');
 
     // Initialize
     init();
@@ -594,8 +769,8 @@
       mapContainer.addEventListener('wheel', handleMouseWheel, { passive: false });
 
       // Zoom controls
-      zoomInBtn.addEventListener('click', () => zoom(0.4));
-      zoomOutBtn.addEventListener('click', () => zoom(-0.4));
+      zoomInBtn.addEventListener('click', () => zoom(0.2));
+      zoomOutBtn.addEventListener('click', () => zoom(-0.2));
 
       // Modal controls
       cancelBtn.addEventListener('click', closeModal);
@@ -638,6 +813,17 @@
 
       // Auto-uppercase for cabina input
       cabinaInput.addEventListener('input', (e) => {
+        e.target.value = e.target.value.toUpperCase();
+      });
+
+      // Search functionality
+      searchInput.addEventListener('input', handleSearchInput);
+      searchInput.addEventListener('focus', handleSearchFocus);
+      searchInput.addEventListener('blur', handleSearchBlur);
+      clearSearchBtn.addEventListener('click', clearSearch);
+
+      // Auto-uppercase for search input
+      searchInput.addEventListener('input', (e) => {
         e.target.value = e.target.value.toUpperCase();
       });
 
@@ -1044,6 +1230,11 @@
       const status = umbrella.status || (umbrella.open ? 'open' : 'closed');
       el.className = `umbrella ${status}`;
       
+      // Maintain highlight if this umbrella is currently highlighted
+      if (highlightedUmbrellas.some(h => h.id === umbrella.id)) {
+        el.classList.add('highlighted');
+      }
+      
       el.innerHTML = `
         <div class="delete-btn" title="Elimina">×</div>
         <div class="umbrella-number">${umbrella.cabina}</div>
@@ -1138,9 +1329,22 @@
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModal();
-      if (e.key === '+' || e.key === '=') zoom(0.2);
-      if (e.key === '-') zoom(-0.2);
+      // Don't trigger shortcuts when typing in search box
+      if (e.target === searchInput || e.target === cabinaInput) return;
+      
+      if (e.key === 'Escape') {
+        closeModal();
+        clearSearch();
+      }
+      if (e.key === '+' || e.key === '=') zoom(0.1);
+      if (e.key === '-') zoom(-0.1);
+      
+      // Focus search with Ctrl+F or F3
+      if ((e.ctrlKey && e.key === 'f') || e.key === 'F3') {
+        e.preventDefault();
+        searchInput.focus();
+        searchInput.select();
+      }
     });
   </script>
 </body>

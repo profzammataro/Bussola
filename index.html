@@ -100,14 +100,16 @@
     }
 
     .umbrella-number {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 900;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
     }
 
-    .lettini-number {
-      font-size: 16px;
+    .umbrella-details {
+      font-size: 12px;
       font-weight: 600;
+      line-height: 1.2;
+      text-align: center;
     }
 
     .delete-btn {
@@ -210,15 +212,15 @@
       border-color: #007bff;
     }
 
-    /* Lettini selector smart */
-    .lettini-selector {
+    /* Lettini, Sdraio, Sedie selector */
+    .lettini-selector, .sdraio-selector, .sedie-selector {
       display: flex;
       gap: 10px;
       justify-content: center;
       margin-top: 10px;
     }
 
-    .lettini-btn {
+    .lettini-btn, .sdraio-btn, .sedie-btn {
       width: 50px;
       height: 50px;
       border: 2px solid #ddd;
@@ -233,12 +235,12 @@
       justify-content: center;
     }
 
-    .lettini-btn:hover {
+    .lettini-btn:hover, .sdraio-btn:hover, .sedie-btn:hover {
       border-color: #007bff;
       transform: scale(1.05);
     }
 
-    .lettini-btn.active {
+    .lettini-btn.active, .sdraio-btn.active, .sedie-btn.active {
       background: #007bff;
       color: white;
       border-color: #007bff;
@@ -468,6 +470,24 @@
       </div>
 
       <div class="form-group">
+        <label>Numero Sdraio:</label>
+        <div class="sdraio-selector">
+          <button type="button" class="sdraio-btn active" data-value="0">0</button>
+          <button type="button" class="sdraio-btn" data-value="1">1</button>
+          <button type="button" class="sdraio-btn" data-value="2">2</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Numero Sedie:</label>
+        <div class="sedie-selector">
+          <button type="button" class="sedie-btn active" data-value="0">0</button>
+          <button type="button" class="sedie-btn" data-value="1">1</button>
+          <button type="button" class="sedie-btn" data-value="2">2</button>
+        </div>
+      </div>
+
+      <div class="form-group">
         <label>Stato Ombrellone:</label>
         <div class="status-selector">
           <button type="button" class="status-btn" data-status="closed">Chiuso</button>
@@ -541,6 +561,8 @@
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
     const lettiniButtons = document.querySelectorAll('.lettini-btn');
+    const sdraioButtons = document.querySelectorAll('.sdraio-btn');
+    const sedieButtons = document.querySelectorAll('.sedie-btn');
     const statusButtons = document.querySelectorAll('.status-btn');
 
     // Initialize
@@ -573,6 +595,22 @@
       lettiniButtons.forEach(btn => {
         btn.addEventListener('click', () => {
           lettiniButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+
+      // Sdraio selector
+      sdraioButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          sdraioButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+
+      // Sedie selector
+      sedieButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          sedieButtons.forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
         });
       });
@@ -839,6 +877,8 @@
         y: snappedY,
         cabina: generateNextCabinaCode(),
         lettini: 2,
+        sdraio: 0, // Default 0
+        sedie: 0,  // Default 0
         status: 'closed', // Default to red/closed as requested
         mtime: Date.now()
       };
@@ -869,10 +909,15 @@
 
         for (const id in data) {
           const umbrellaData = data[id];
+          
+          // Handle backward compatibility
           if (umbrellaData.open !== undefined && umbrellaData.status === undefined) {
             umbrellaData.status = umbrellaData.open ? 'open' : 'closed';
             delete umbrellaData.open;
           }
+          // Handle backward compatibility for existing umbrellas
+          if (umbrellaData.sdraio === undefined) umbrellaData.sdraio = 0;
+          if (umbrellaData.sedie === undefined) umbrellaData.sedie = 0;
           
           umbrellas.push(umbrellaData);
           
@@ -913,10 +958,18 @@
       const status = umbrella.status || (umbrella.open ? 'open' : 'closed');
       el.className = `umbrella ${status}`;
       
+      // Build details text
+      let details = [];
+      if (umbrella.lettini > 0) details.push(`${umbrella.lettini}L`);
+      if (umbrella.sdraio > 0) details.push(`${umbrella.sdraio}S`);
+      if (umbrella.sedie > 0) details.push(`${umbrella.sedie}Se`);
+      
+      const detailsText = details.length > 0 ? details.join(' ') : 'Vuoto';
+      
       el.innerHTML = `
         <div class="delete-btn" title="Elimina">×</div>
         <div class="umbrella-number">${umbrella.cabina}</div>
-        <div class="lettini-number">${umbrella.lettini} lettini</div>
+        <div class="umbrella-details">${detailsText}</div>
       `;
     }
 
@@ -928,10 +981,24 @@
       
       cabinaInput.value = umbrella.cabina;
       
+      // Set lettini selector
       lettiniButtons.forEach(btn => {
         btn.classList.toggle('active', btn.dataset.value == umbrella.lettini);
       });
 
+      // Set sdraio selector
+      const sdraioValue = umbrella.sdraio || 0;
+      sdraioButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value == sdraioValue);
+      });
+
+      // Set sedie selector
+      const sedieValue = umbrella.sedie || 0;
+      sedieButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value == sedieValue);
+      });
+
+      // Set status selector
       const status = umbrella.status || (umbrella.open ? 'open' : 'closed');
       statusButtons.forEach(btn => {
         btn.classList.toggle('active', btn.dataset.status === status);
@@ -952,10 +1019,14 @@
       }
 
       const selectedLettini = document.querySelector('.lettini-btn.active').dataset.value;
+      const selectedSdraio = document.querySelector('.sdraio-btn.active').dataset.value;
+      const selectedSedie = document.querySelector('.sedie-btn.active').dataset.value;
       const selectedStatus = document.querySelector('.status-btn.active').dataset.status;
       
       currentUmbrella.cabina = cabinaValue;
       currentUmbrella.lettini = parseInt(selectedLettini);
+      currentUmbrella.sdraio = parseInt(selectedSdraio);
+      currentUmbrella.sedie = parseInt(selectedSedie);
       currentUmbrella.status = selectedStatus;
       currentUmbrella.mtime = Date.now();
 

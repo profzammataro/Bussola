@@ -35,13 +35,17 @@
       transform: translate(-50%, -50%) scale(0.1);
       transform-origin: center center;
       transition: transform 0.3s ease;
-      cursor: grab;
+      cursor: default;
       background: transparent;
     }
 
     #map.dragging {
       cursor: grabbing;
       transition: none;
+    }
+
+    #map.ready-to-pan {
+      cursor: grab;
     }
 
     .umbrella {
@@ -102,11 +106,11 @@
     .umbrella-number {
       font-size: 20px;
       font-weight: 900;
-      margin-bottom: 1px;
+      margin-bottom: 2px;
     }
 
     .umbrella-details {
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 600;
       line-height: 1.2;
       text-align: center;
@@ -212,15 +216,15 @@
       border-color: #007bff;
     }
 
-    /* Lettini, Sdraio, Sedie selector */
-    .lettini-selector, .sdraio-selector, .sedie-selector {
+    /* Lettini, Sdraio, Sedia selector */
+    .lettini-selector {
       display: flex;
       gap: 10px;
       justify-content: center;
       margin-top: 10px;
     }
 
-    .lettini-btn, .sdraio-btn, .sedie-btn {
+    .lettini-btn, .sdraio-btn, .sedia-btn {
       width: 50px;
       height: 50px;
       border: 2px solid #ddd;
@@ -235,12 +239,12 @@
       justify-content: center;
     }
 
-    .lettini-btn:hover, .sdraio-btn:hover, .sedie-btn:hover {
+    .lettini-btn:hover, .sdraio-btn:hover, .sedia-btn:hover {
       border-color: #007bff;
       transform: scale(1.05);
     }
 
-    .lettini-btn.active, .sdraio-btn.active, .sedie-btn.active {
+    .lettini-btn.active, .sdraio-btn.active, .sedia-btn.active {
       background: #007bff;
       color: white;
       border-color: #007bff;
@@ -471,19 +475,19 @@
 
       <div class="form-group">
         <label>Numero Sdraio:</label>
-        <div class="sdraio-selector">
-          <button type="button" class="sdraio-btn active" data-value="0">0</button>
-          <button type="button" class="sdraio-btn" data-value="1">1</button>
+        <div class="lettini-selector">
+          <button type="button" class="sdraio-btn" data-value="0">0</button>
+          <button type="button" class="sdraio-btn active" data-value="1">1</button>
           <button type="button" class="sdraio-btn" data-value="2">2</button>
         </div>
       </div>
 
       <div class="form-group">
         <label>Numero Sedie:</label>
-        <div class="sedie-selector">
-          <button type="button" class="sedie-btn active" data-value="0">0</button>
-          <button type="button" class="sedie-btn" data-value="1">1</button>
-          <button type="button" class="sedie-btn" data-value="2">2</button>
+        <div class="lettini-selector">
+          <button type="button" class="sedia-btn active" data-value="0">0</button>
+          <button type="button" class="sedia-btn" data-value="1">1</button>
+          <button type="button" class="sedia-btn" data-value="2">2</button>
         </div>
       </div>
 
@@ -537,6 +541,7 @@
     let panStartY = 0;
     let panMapStartX = 0;
     let panMapStartY = 0;
+    let mouseDownOnMap = false; // Track if mouse is pressed on map
     
     // Umbrella drag state
     let isDraggingUmbrella = false;
@@ -562,7 +567,7 @@
     const zoomOutBtn = document.getElementById('zoom-out');
     const lettiniButtons = document.querySelectorAll('.lettini-btn');
     const sdraioButtons = document.querySelectorAll('.sdraio-btn');
-    const sedieButtons = document.querySelectorAll('.sedie-btn');
+    const sediaButtons = document.querySelectorAll('.sedia-btn');
     const statusButtons = document.querySelectorAll('.status-btn');
 
     // Initialize
@@ -579,6 +584,14 @@
       mapContainer.addEventListener('pointermove', handleMapPointerMove);
       mapContainer.addEventListener('pointerup', handleMapPointerUp);
       mapContainer.addEventListener('pointercancel', handleMapPointerUp);
+
+      // Desktop-specific mouse events
+      mapContainer.addEventListener('mousedown', handleMouseDown);
+      mapContainer.addEventListener('mouseup', handleMouseUp);
+      mapContainer.addEventListener('mouseleave', handleMouseUp);
+
+      // Mouse wheel zoom for desktop
+      mapContainer.addEventListener('wheel', handleMouseWheel, { passive: false });
 
       // Zoom controls
       zoomInBtn.addEventListener('click', () => zoom(0.2));
@@ -607,10 +620,10 @@
         });
       });
 
-      // Sedie selector
-      sedieButtons.forEach(btn => {
+      // Sedia selector
+      sediaButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-          sedieButtons.forEach(b => b.classList.remove('active'));
+          sediaButtons.forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
         });
       });
@@ -639,6 +652,64 @@
       }, false);
     }
 
+    // Helper function to detect if it's a touch device
+    function isTouchDevice() {
+      return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    }
+
+    // Desktop mouse event handlers
+    function handleMouseDown(e) {
+      if (isTouchDevice()) return; // Skip on touch devices
+      
+      const target = e.target;
+      if (target === map || target === mapContainer) {
+        mouseDownOnMap = true;
+        map.classList.add('ready-to-pan');
+      }
+    }
+
+    function handleMouseUp(e) {
+      if (isTouchDevice()) return; // Skip on touch devices
+      
+      mouseDownOnMap = false;
+      map.classList.remove('ready-to-pan');
+    }
+
+    // Mouse wheel zoom handler
+    function handleMouseWheel(e) {
+      if (isTouchDevice()) return; // Skip on touch devices
+      
+      e.preventDefault(); // Prevent page scroll
+      
+      // Get mouse position relative to map container
+      const rect = mapContainer.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      
+      // Calculate zoom delta
+      const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1; // Inverted for natural scrolling
+      const oldScale = currentScale;
+      const newScale = Math.max(0.03, Math.min(3, currentScale + zoomDelta));
+      
+      if (newScale !== currentScale) {
+        // Calculate zoom center point
+        const scaleRatio = newScale / oldScale;
+        
+        // Adjust map position to zoom towards mouse cursor
+        const centerX = mapContainer.clientWidth / 2;
+        const centerY = mapContainer.clientHeight / 2;
+        
+        const offsetX = (mouseX - centerX) * (1 - scaleRatio);
+        const offsetY = (mouseY - centerY) * (1 - scaleRatio);
+        
+        mapX += offsetX;
+        mapY += offsetY;
+        currentScale = newScale;
+        
+        updateMapTransform();
+      }
+    }
+
     function handleMapPointerDown(e) {
       const target = e.target;
       
@@ -656,6 +727,11 @@
         // Store positions for potential pan/movement detection
         panStartX = e.clientX;
         panStartY = e.clientY;
+        return;
+      }
+      
+      // For desktop: only allow pan if mouse is down
+      if (!isTouchDevice() && !mouseDownOnMap) {
         return;
       }
       
@@ -688,6 +764,11 @@
           }
         }
       } else {
+        // For desktop: only allow pan movement if mouse is down
+        if (!isTouchDevice() && !mouseDownOnMap) {
+          return;
+        }
+        
         // Check if we should start panning (moved enough distance)
         const moveDistance = Math.sqrt(
           Math.pow(e.clientX - panStartX, 2) + Math.pow(e.clientY - panStartY, 2)
@@ -796,6 +877,11 @@
     function endMapPan() {
       isPanning = false;
       map.classList.remove('dragging');
+      
+      // On desktop, show ready-to-pan cursor if mouse is still down
+      if (!isTouchDevice() && mouseDownOnMap) {
+        map.classList.add('ready-to-pan');
+      }
     }
 
     function startUmbrellaDrag(e, umbrellaEl) {
@@ -877,8 +963,8 @@
         y: snappedY,
         cabina: generateNextCabinaCode(),
         lettini: 2,
-        sdraio: 0, // Default 0
-        sedie: 0,  // Default 0
+        sdraio: 0, // Default value
+        sedia: 0,  // Default value
         status: 'closed', // Default to red/closed as requested
         mtime: Date.now()
       };
@@ -909,15 +995,15 @@
 
         for (const id in data) {
           const umbrellaData = data[id];
-          
-          // Handle backward compatibility
           if (umbrellaData.open !== undefined && umbrellaData.status === undefined) {
             umbrellaData.status = umbrellaData.open ? 'open' : 'closed';
             delete umbrellaData.open;
           }
-          // Handle backward compatibility for existing umbrellas
+          
+          // Set default values for new fields if missing
           if (umbrellaData.sdraio === undefined) umbrellaData.sdraio = 0;
-          if (umbrellaData.sedie === undefined) umbrellaData.sedie = 0;
+          if (umbrellaData.sedia === undefined) umbrellaData.sedia = 0;
+          if (umbrellaData.lettini === undefined) umbrellaData.lettini = 2;
           
           umbrellas.push(umbrellaData);
           
@@ -958,18 +1044,12 @@
       const status = umbrella.status || (umbrella.open ? 'open' : 'closed');
       el.className = `umbrella ${status}`;
       
-      // Build details text
-      let details = [];
-      if (umbrella.lettini > 0) details.push(`${umbrella.lettini}L`);
-      if (umbrella.sdraio > 0) details.push(`${umbrella.sdraio}S`);
-      if (umbrella.sedie > 0) details.push(`${umbrella.sedie}Se`);
-      
-      const detailsText = details.length > 0 ? details.join(' ') : 'Vuoto';
-      
       el.innerHTML = `
         <div class="delete-btn" title="Elimina">×</div>
         <div class="umbrella-number">${umbrella.cabina}</div>
-        <div class="umbrella-details">${detailsText}</div>
+        <div class="umbrella-details">
+          L:${umbrella.lettini || 0} S:${umbrella.sdraio || 0} C:${umbrella.sedia || 0}
+        </div>
       `;
     }
 
@@ -983,19 +1063,17 @@
       
       // Set lettini selector
       lettiniButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.value == umbrella.lettini);
+        btn.classList.toggle('active', btn.dataset.value == (umbrella.lettini || 2));
       });
 
       // Set sdraio selector
-      const sdraioValue = umbrella.sdraio || 0;
       sdraioButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.value == sdraioValue);
+        btn.classList.toggle('active', btn.dataset.value == (umbrella.sdraio || 0));
       });
 
-      // Set sedie selector
-      const sedieValue = umbrella.sedie || 0;
-      sedieButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.value == sedieValue);
+      // Set sedia selector
+      sediaButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value == (umbrella.sedia || 0));
       });
 
       // Set status selector
@@ -1020,13 +1098,13 @@
 
       const selectedLettini = document.querySelector('.lettini-btn.active').dataset.value;
       const selectedSdraio = document.querySelector('.sdraio-btn.active').dataset.value;
-      const selectedSedie = document.querySelector('.sedie-btn.active').dataset.value;
+      const selectedSedia = document.querySelector('.sedia-btn.active').dataset.value;
       const selectedStatus = document.querySelector('.status-btn.active').dataset.status;
       
       currentUmbrella.cabina = cabinaValue;
       currentUmbrella.lettini = parseInt(selectedLettini);
       currentUmbrella.sdraio = parseInt(selectedSdraio);
-      currentUmbrella.sedie = parseInt(selectedSedie);
+      currentUmbrella.sedia = parseInt(selectedSedia);
       currentUmbrella.status = selectedStatus;
       currentUmbrella.mtime = Date.now();
 
@@ -1061,8 +1139,8 @@
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeModal();
-      if (e.key === '+' || e.key === '=') zoom(0.1);
-      if (e.key === '-') zoom(-0.1);
+      if (e.key === '+' || e.key === '=') zoom(0.2);
+      if (e.key === '-') zoom(-0.2);
     });
   </script>
 </body>
